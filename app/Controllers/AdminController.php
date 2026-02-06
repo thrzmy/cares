@@ -400,7 +400,192 @@ final class AdminController
     public static function reports(): void
     {
         RoleMiddleware::requireRole('administrator');
-        View::render('admin/reports', ['title' => 'System Reports']);
+        $startDate = self::normalizeDateInput(trim((string)($_GET['start_date'] ?? '')));
+        $endDate = self::normalizeDateInput(trim((string)($_GET['end_date'] ?? '')));
+
+        if ($startDate !== '' && $endDate !== '' && $endDate < $startDate) {
+            $tmp = $startDate;
+            $startDate = $endDate;
+            $endDate = $tmp;
+        }
+
+        $addDateFilter = static function (string $column, array &$params) use ($startDate, $endDate): string {
+            $clause = '';
+            if ($startDate !== '') {
+                $clause .= " AND {$column} >= :start_date";
+                $params[':start_date'] = $startDate . ' 00:00:00';
+            }
+            if ($endDate !== '') {
+                $clause .= " AND {$column} <= :end_date";
+                $params[':end_date'] = $endDate . ' 23:59:59';
+            }
+            return $clause;
+        };
+
+        $usersParams = [];
+        $usersWhere = "WHERE is_deleted = 0";
+        $usersWhere .= $addDateFilter('created_at', $usersParams);
+
+        $usersTotalSt = Database::pdo()->prepare("SELECT COUNT(*) FROM users {$usersWhere}");
+        $usersTotalSt->execute($usersParams);
+        $usersTotal = (int)$usersTotalSt->fetchColumn();
+
+        $usersActiveSt = Database::pdo()->prepare("SELECT COALESCE(SUM(is_active = 1), 0) FROM users {$usersWhere}");
+        $usersActiveSt->execute($usersParams);
+        $usersActive = (int)$usersActiveSt->fetchColumn();
+
+        $roleSt = Database::pdo()->prepare("SELECT role, COUNT(*) AS total FROM users {$usersWhere} GROUP BY role ORDER BY total DESC");
+        $roleSt->execute($usersParams);
+        $userRoleCounts = $roleSt->fetchAll();
+
+        $statusSt = Database::pdo()->prepare("SELECT account_status, COUNT(*) AS total FROM users {$usersWhere} GROUP BY account_status ORDER BY total DESC");
+        $statusSt->execute($usersParams);
+        $userStatusCounts = $statusSt->fetchAll();
+
+        $statusMap = [];
+        foreach ($userStatusCounts as $row) {
+            $statusMap[(string)$row['account_status']] = (int)$row['total'];
+        }
+
+        $studentsParams = [];
+        $studentsWhere = "WHERE is_deleted = 0";
+        $studentsWhere .= $addDateFilter('created_at', $studentsParams);
+
+        $studentsTotalSt = Database::pdo()->prepare("SELECT COUNT(*) FROM students {$studentsWhere}");
+        $studentsTotalSt->execute($studentsParams);
+        $studentsTotal = (int)$studentsTotalSt->fetchColumn();
+
+        $studentStatusSt = Database::pdo()->prepare("SELECT status, COUNT(*) AS total FROM students {$studentsWhere} GROUP BY status ORDER BY total DESC");
+        $studentStatusSt->execute($studentsParams);
+        $studentStatusCounts = $studentStatusSt->fetchAll();
+
+        $studentStatusMap = [];
+        foreach ($studentStatusCounts as $row) {
+            $studentStatusMap[(string)$row['status']] = (int)$row['total'];
+        }
+
+        $scoresParams = [];
+        $scoresWhere = "WHERE ses.is_deleted = 0";
+        $scoresWhere .= $addDateFilter('ses.created_at', $scoresParams);
+
+        $scoreEntriesSt = Database::pdo()->prepare("SELECT COUNT(*) FROM student_exam_scores ses {$scoresWhere}");
+        $scoreEntriesSt->execute($scoresParams);
+        $scoreEntries = (int)$scoreEntriesSt->fetchColumn();
+
+        $studentsWithScoresSt = Database::pdo()->prepare(
+            "SELECT COUNT(DISTINCT s.id)
+             FROM students s
+             INNER JOIN student_exam_scores ses
+               ON ses.student_id = s.id AND ses.is_deleted = 0
+             WHERE s.is_deleted = 0" . $addDateFilter('ses.created_at', $scoresParams)
+        );
+        $studentsWithScoresSt->execute($scoresParams);
+        $studentsWithScores = (int)$studentsWithScoresSt->fetchColumn();
+
+        $examParams = [];
+        $examWhere = $addDateFilter('ses.created_at', $examParams);
+        $examPartsSt = Database::pdo()->prepare(
+            "SELECT ep.name,
+                    ep.max_score,
+                    COUNT(ses.id) AS entries,
+                    AVG(ses.score) AS avg_score
+             FROM exam_parts ep
+             LEFT JOIN student_exam_scores ses
+               ON ses.exam_part_id = ep.id
+              AND ses.is_deleted = 0
+              {$examWhere}
+             WHERE ep.is_deleted = 0
+             GROUP BY ep.id
+             ORDER BY ep.name"
+        );
+        $examPartsSt->execute($examParams);
+        $examParts = $examPartsSt->fetchAll();
+
+        $logsParams = [];
+        $logsWhere = "WHERE 1=1";
+        $logsWhere .= $addDateFilter('l.created_at', $logsParams);
+
+        $logEntriesSt = Database::pdo()->prepare("SELECT COUNT(*) FROM logs l {$logsWhere}");
+        $logEntriesSt->execute($logsParams);
+        $logEntries = (int)$logEntriesSt->fetchColumn();
+
+        $topActionsSt = Database::pdo()->prepare(
+            "SELECT l.action, COUNT(*) AS total
+             FROM logs l
+             {$logsWhere}
+             GROUP BY l.action
+             ORDER BY total DESC
+             LIMIT 6"
+        );
+        $topActionsSt->execute($logsParams);
+        $topActions = $topActionsSt->fetchAll();
+
+        $recParams = [];
+        $recDateFilter = $addDateFilter('ses.created_at', $recParams);
+        $recommendationsSt = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    ses.student_id,
+                    c.course_code,
+                    c.course_name,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ses.student_id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                    ) AS rn
+                FROM student_exam_scores ses
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                INNER JOIN courses c
+                    ON c.id = w.course_id AND c.is_deleted = 0
+                WHERE ses.is_deleted = 0
+                {$recDateFilter}
+                GROUP BY ses.student_id, c.id
+            )
+            SELECT course_code,
+                   course_name,
+                   COUNT(*) AS student_count,
+                   AVG(total_score) AS avg_score
+            FROM ranked
+            WHERE rn = 1
+            GROUP BY course_code, course_name
+            ORDER BY student_count DESC, avg_score DESC
+            LIMIT 3"
+        );
+        $recommendationsSt->execute($recParams);
+        $topRecommendations = $recommendationsSt->fetchAll();
+
+        $periodLabel = 'All time';
+        if ($startDate !== '' || $endDate !== '') {
+            $startLabel = $startDate !== '' ? date('M j, Y', strtotime($startDate)) : 'Beginning';
+            $endLabel = $endDate !== '' ? date('M j, Y', strtotime($endDate)) : 'Present';
+            $periodLabel = $startLabel . ' to ' . $endLabel;
+        }
+
+        View::render('admin/reports', [
+            'title' => 'System Reports',
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'periodLabel' => $periodLabel,
+            'summary' => [
+                'users_total' => $usersTotal,
+                'users_active' => $usersActive,
+                'users_pending' => $statusMap['pending'] ?? 0,
+                'students_total' => $studentsTotal,
+                'students_pending' => $studentStatusMap['pending'] ?? 0,
+                'score_entries' => $scoreEntries,
+                'students_with_scores' => $studentsWithScores,
+                'log_entries' => $logEntries,
+            ],
+            'userRoleCounts' => $userRoleCounts,
+            'userStatusCounts' => $userStatusCounts,
+            'studentStatusCounts' => $studentStatusCounts,
+            'examParts' => $examParts,
+            'topActions' => $topActions,
+            'topRecommendations' => $topRecommendations,
+        ]);
     }
 
     public static function profile(): void
