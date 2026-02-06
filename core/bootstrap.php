@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/Env.php';
+
+Env::load(__DIR__ . '/../.env');
+
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Helpers.php';
