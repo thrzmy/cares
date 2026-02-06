@@ -43,6 +43,18 @@ Run the smoke tests for account and student management:
 php scripts/smoke_test.php
 ```
 
+Run the authentication tests:
+
+```bash
+php scripts/auth_test.php
+```
+
+Run all tests:
+
+```bash
+php scripts/run_tests.php
+```
+
 ## Project structure
 
 ```
