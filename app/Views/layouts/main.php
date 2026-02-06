@@ -14,7 +14,7 @@ declare(strict_types=1);
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Bootstrap (capstone friendly) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -28,8 +28,9 @@ declare(strict_types=1);
         <div class="container">
 
             <!-- Brand -->
-            <a class="navbar-brand fw-bold" href="<?= e(BASE_PATH) ?>/">
-                <?= e(APP_NAME) ?>
+            <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="<?= e(BASE_PATH) ?>/">
+                <img class="brand-logo" src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
+                <span><?= e(APP_NAME) ?></span>
             </a>
 
             <div class="d-flex align-items-center ms-auto">
