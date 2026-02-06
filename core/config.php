@@ -5,6 +5,7 @@ define('APP_URL', env('APP_URL', 'http://localhost:8000'));
 
 define('APP_NAME', env('APP_NAME', 'CARES'));
 define('BASE_PATH', env('BASE_PATH', ''));
+define('APP_TIMEZONE', env('APP_TIMEZONE', 'UTC'));
 
 define('DB_HOST', env('DB_HOST', '127.0.0.1'));
 define('DB_NAME', env('DB_NAME', 'cares'));
@@ -18,3 +19,6 @@ define('APP_DEBUG', filter_var(env('APP_DEBUG', 'true'), FILTER_VALIDATE_BOOL));
 define('BREVO_API_KEY', env('BREVO_API_KEY', '')); // put your API key here later
 define('MAIL_FROM_EMAIL', env('MAIL_FROM_EMAIL', 'no-reply@cares.local')); // for demo; replace with your verified sender in Brevo
 define('MAIL_FROM_NAME', env('MAIL_FROM_NAME', 'CARES'));
+
+define('EMAIL_VERIFICATION_TTL_MINUTES', (int)env('EMAIL_VERIFICATION_TTL_MINUTES', '15'));
+define('EMAIL_VERIFICATION_RESEND_SECONDS', (int)env('EMAIL_VERIFICATION_RESEND_SECONDS', '60'));

@@ -40,51 +40,53 @@ declare(strict_types=1);
                                 <?= e(ucfirst(strtolower((string)($_SESSION['name'] ?? 'Account')))) ?>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <?php if (currentRole() === 'administrator'): ?>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator')) ?>" href="<?= e(BASE_PATH) ?>/administrator">Dashboard</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator/accounts')) ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">Account Management</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator/students')) ?>" href="<?= e(BASE_PATH) ?>/administrator/students">Student Management</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator/scores')) ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">Result Storage</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator/results')) ?>" href="<?= e(BASE_PATH) ?>/administrator/results">Course Recommendation</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator/reports')) ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">System Reports</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator/logs')) ?>" href="<?= e(BASE_PATH) ?>/administrator/logs">Monitor Logs</a>
-                                    </li>
+                                <?php if (empty($_SESSION['force_password_change'])): ?>
+                                    <?php if (currentRole() === 'administrator'): ?>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator')) ?>" href="<?= e(BASE_PATH) ?>/administrator">Dashboard</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/accounts')) ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">Account Management</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/students')) ?>" href="<?= e(BASE_PATH) ?>/administrator/students">Student Management</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/scores')) ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">Result Storage</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/results')) ?>" href="<?= e(BASE_PATH) ?>/administrator/results">Course Recommendation</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/reports')) ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">System Reports</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/logs')) ?>" href="<?= e(BASE_PATH) ?>/administrator/logs">Monitor Logs</a>
+                                        </li>
+                                        <li>
+                                            <hr class="dropdown-divider">
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/profile')) ?>" href="<?= e(BASE_PATH) ?>/administrator/profile">My Profile</a>
+                                        </li>
+                                    <?php elseif (currentRole() === 'admission'): ?>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/admission')) ?>" href="<?= e(BASE_PATH) ?>/admission">Dashboard</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/admission/students')) ?>" href="<?= e(BASE_PATH) ?>/admission/students">Student Management</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/admission/storage')) ?>" href="<?= e(BASE_PATH) ?>/admission/storage">Result Storage</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/admission/results')) ?>" href="<?= e(BASE_PATH) ?>/admission/results">Course Recommendation</a>
+                                        </li>
+                                    <?php endif; ?>
                                     <li>
                                         <hr class="dropdown-divider">
                                     </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/administrator/profile')) ?>" href="<?= e(BASE_PATH) ?>/administrator/profile">My Profile</a>
-                                    </li>
-                                <?php elseif (currentRole() === 'admission'): ?>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/admission')) ?>" href="<?= e(BASE_PATH) ?>/admission">Dashboard</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/admission/students')) ?>" href="<?= e(BASE_PATH) ?>/admission/students">Student Management</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/admission/storage')) ?>" href="<?= e(BASE_PATH) ?>/admission/storage">Result Storage</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item <?= e(isActive('/admission/results')) ?>" href="<?= e(BASE_PATH) ?>/admission/results">Course Recommendation</a>
-                                    </li>
                                 <?php endif; ?>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
                                 <li>
                                     <a class="dropdown-item" href="<?= e(BASE_PATH) ?>/logout">Logout</a>
                                 </li>

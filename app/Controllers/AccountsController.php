@@ -305,29 +305,46 @@ final class AccountsController
             $role = 'admission';
         }
 
-        $isSystemRole = in_array($role, ['administrator', 'admission'], true);
-        $accountStatus = 'pending';
-        $isActive = 0;
+        $accountStatus = 'verified';
+        $isActive = $isActive ? 1 : 0;
 
-        // temp password (simple)
-        $tempPassword = 'Temp@1234';
+        $tempPassword = PasswordService::generateTempPassword();
         $hash = password_hash($tempPassword, PASSWORD_DEFAULT);
 
         try {
-            $sql = "INSERT INTO users (name, email, password, role, account_status, is_active, force_password_change, created_by)
-                    VALUES (:name, :email, :password, :role, :account_status, :is_active, 1, :created_by)";
+            $sql = "INSERT INTO users (name, email, password, role, account_status, is_active, force_password_change, email_verified_at, verified_by, verified_at, created_by)
+                    VALUES (:name, :email, :password, :role, :account_status, :is_active, 1, NOW(), :verified_by, NOW(), :created_by)";
             Database::pdo()->prepare($sql)->execute([
                 ':name' => $name,
                 ':email' => $email,
                 ':password' => $hash,
                 ':role' => $role,
                 ':account_status' => $accountStatus,
-                ':is_active' => $isActive ? 1 : 0,
+                ':is_active' => $isActive,
+                ':verified_by' => (int)($_SESSION['user_id'] ?? 0),
                 ':created_by' => (int)($_SESSION['user_id'] ?? 0),
             ]);
 
-            $statusMsg = $isSystemRole ? 'Pending approval' : 'Verified';
-            flash('success', "Account created ({$statusMsg}). Temporary password: {$tempPassword}");
+            $userId = (int)Database::pdo()->lastInsertId();
+
+            $statusMsg = 'Verified';
+            $subject = APP_NAME . ' - Your Temporary Password';
+            $html = "
+                <p>Hello " . e($name) . ",</p>
+                <p>Your account has been created. Use the temporary password below to log in:</p>
+                <p><strong>" . e($tempPassword) . "</strong></p>
+                <p>Please change your password after logging in.</p>
+                ";
+
+            $sent = Mailer::send($email, $name, $subject, $html);
+
+            Logger::log((int)($_SESSION['user_id'] ?? 0), 'CREATE_ACCOUNT', 'users', $userId, $sent ? 'Temporary password emailed' : 'Temporary password email NOT sent (dev fallback)');
+
+            if ($sent) {
+                flash('success', "Account created ({$statusMsg}). Temporary password sent to {$email}.");
+            } else {
+                flash('success', "Account created ({$statusMsg}). Temporary password: {$tempPassword} (DEV fallback: email not sent).");
+            }
             redirect('/administrator/accounts');
         } catch (Throwable $e) {
             $msg = APP_DEBUG ? $e->getMessage() : 'Failed to create account (email might already exist).';
@@ -476,6 +493,14 @@ final class AccountsController
         $id = (int)($_POST['id'] ?? 0);
         $selfId = (int)($_SESSION['user_id'] ?? 0);
 
+        $st = Database::pdo()->prepare("SELECT email_verified_at FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $id]);
+        $row = $st->fetch();
+        if (!$row || empty($row['email_verified_at'])) {
+            flash('error', 'User email is not verified yet.');
+            redirect('/administrator/accounts');
+        }
+
         $sql = "UPDATE users
                 SET account_status = 'verified',
                     is_active = 1,
@@ -531,7 +556,15 @@ final class AccountsController
 
         $id = (int)($_POST['id'] ?? 0);
 
-        $tempPassword = 'Temp@1234';
+        $st = Database::pdo()->prepare("SELECT id, name, email FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $id]);
+        $user = $st->fetch();
+        if (!$user) {
+            flash('error', 'User not found.');
+            redirect('/administrator/accounts');
+        }
+
+        $tempPassword = PasswordService::generateTempPassword();
         $hash = password_hash($tempPassword, PASSWORD_DEFAULT);
 
         $sql = "UPDATE users
@@ -547,7 +580,23 @@ final class AccountsController
             ':id' => $id,
         ]);
 
-        flash('success', "Password reset. Temporary password: {$tempPassword}");
+        $subject = APP_NAME . ' - Password Reset';
+        $html = "
+            <p>Hello " . e((string)$user['name']) . ",</p>
+            <p>Your password has been reset. Use the temporary password below to log in:</p>
+            <p><strong>" . e($tempPassword) . "</strong></p>
+            <p>Please change your password after logging in.</p>
+            ";
+
+        $sent = Mailer::send((string)$user['email'], (string)$user['name'], $subject, $html);
+
+        Logger::log((int)($_SESSION['user_id'] ?? 0), 'RESET_PASSWORD', 'users', $id, $sent ? 'Temporary password emailed' : 'Temporary password email NOT sent (dev fallback)');
+
+        if ($sent) {
+            flash('success', 'Password reset. Temporary password sent to the user email.');
+        } else {
+            flash('success', "Password reset. Temporary password: {$tempPassword} (DEV fallback: email not sent).");
+        }
         redirect('/administrator/accounts');
     }
 

@@ -26,6 +26,8 @@ final class Database
 
         try {
             self::$pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+            // Store DB timestamps in Manila time
+            self::$pdo->exec("SET time_zone = '+08:00'");
             return self::$pdo;
         } catch (PDOException $e) {
             if (APP_DEBUG) {

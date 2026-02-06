@@ -12,6 +12,8 @@ require_once __DIR__ . '/Request.php';
 require_once __DIR__ . '/Router.php';
 require_once __DIR__ . '/View.php';
 
+date_default_timezone_set(APP_TIMEZONE);
+
 // Basic manual autoload for our app classes
 require_once __DIR__ . '/../app/Controllers/AccountsController.php';
 require_once __DIR__ . '/../app/Controllers/AuthController.php';
@@ -24,6 +26,8 @@ require_once __DIR__ . '/../app/Middleware/RoleMiddleware.php';
 foreach ([
   'Logger',
   'Mailer',
+  'EmailVerificationService',
+  'PasswordService',
   'TokenService',
   'WeightsService',
 ] as $svc) {

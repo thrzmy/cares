@@ -22,6 +22,15 @@ $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/logout', [AuthController::class, 'logout']);
 
+$router->get('/register', [AuthController::class, 'showRegister']);
+$router->post('/register', [AuthController::class, 'register']);
+$router->get('/verify-email', [AuthController::class, 'showVerifyEmail']);
+$router->post('/verify-email', [AuthController::class, 'verifyEmail']);
+$router->post('/verify-email/resend', [AuthController::class, 'resendVerifyEmail']);
+
+$router->get('/force-password-change', [AuthController::class, 'showForcePasswordChange']);
+$router->post('/force-password-change', [AuthController::class, 'forcePasswordChange']);
+
 $router->get('/forgot-password', [AuthController::class, 'showForgotPassword']);
 $router->post('/forgot-password', [AuthController::class, 'forgotPassword']);
 

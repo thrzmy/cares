@@ -70,3 +70,16 @@ function isActive(string $path): string
 
     return ($current === $path || str_starts_with($current, $path . '/')) ? 'active' : '';
 }
+
+function appNow(): DateTimeImmutable
+{
+    return new DateTimeImmutable('now', new DateTimeZone(APP_TIMEZONE));
+}
+
+function appFromDb(?string $value): ?DateTimeImmutable
+{
+    if ($value === null || $value === '') {
+        return null;
+    }
+    return new DateTimeImmutable($value, new DateTimeZone(APP_TIMEZONE));
+}

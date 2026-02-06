@@ -74,8 +74,7 @@ $success = flash('success');
       </div>
 
       <p class="text-muted small mt-3 mb-0">
-        New accounts receive a temporary password (Temp@1234) and must reset on first login.
-        System roles require administrator approval before login.
+        New accounts are auto-verified, receive a random temporary password via email, and must reset on first login.
       </p>
     </form>
   </div>

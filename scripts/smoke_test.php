@@ -34,7 +34,7 @@ function expect(bool $condition, string $msg): void
 
 // 1) Tables exist
 $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
-$required = ['users', 'students', 'logs'];
+$required = ['users', 'students', 'logs', 'email_verifications'];
 foreach ($required as $t) {
     if (!in_array($t, $tables, true)) {
         fail("Missing table: {$t}");
@@ -82,7 +82,7 @@ try {
     $pdo->exec("DELETE FROM users WHERE email LIKE 'smoke_%@test.local'");
     $pdo->exec("DELETE FROM students WHERE email LIKE 'smoke_%@student.local'");
 
-    $hash = password_hash('Temp@1234', PASSWORD_DEFAULT);
+    $hash = password_hash(PasswordService::generateTempPassword(), PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role, account_status, is_active, force_password_change)
                            VALUES (:name, :email, :password, :role, :status, :active, 1)");
 

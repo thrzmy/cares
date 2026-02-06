@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS weights;
 DROP TABLE IF EXISTS exam_parts;
 DROP TABLE IF EXISTS courses;
 DROP TABLE IF EXISTS password_resets;
+DROP TABLE IF EXISTS email_verifications;
 DROP TABLE IF EXISTS logs;
 DROP TABLE IF EXISTS users;
 
@@ -19,6 +20,7 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     role ENUM('administrator', 'admission') NOT NULL DEFAULT 'admission',
     account_status ENUM('pending', 'verified', 'rejected') NOT NULL DEFAULT 'verified',
+    email_verified_at DATETIME NULL,
     verified_by INT UNSIGNED NULL,
     verified_at DATETIME NULL,
     rejected_by INT UNSIGNED NULL,
@@ -82,6 +84,17 @@ CREATE TABLE password_resets (
     INDEX idx_password_resets_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE email_verifications (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    code_hash CHAR(64) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_verifications_user (user_id),
+    INDEX idx_email_verifications_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE courses (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     course_code VARCHAR(20) NOT NULL,
@@ -128,6 +141,7 @@ INSERT INTO users (
     password,
     role,
     account_status,
+    email_verified_at,
     verified_by,
     verified_at,
     rejected_by,
@@ -137,10 +151,10 @@ INSERT INTO users (
     force_password_change
 )
 VALUES
-    ('Admin', 'admin@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'verified', 1, '2026-02-01 09:00:00', NULL, NULL, NULL, 1, 0),
-    ('Admission Personnel', 'admission@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'admission', 'verified', 1, '2026-02-01 09:10:00', NULL, NULL, NULL, 1, 0),
-    ('Juan De Vera', 'pending_admin@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'pending', NULL, NULL, NULL, NULL, NULL, 0, 1),
-    ('Maria Quinto', 'rejected_admission@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'admission', 'rejected', 1, '2026-01-31 15:30:00', 1, '2026-02-02 08:20:00', 'Incomplete requirements', 0, 1);
+    ('Admin', 'admin@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'verified', '2026-02-01 08:55:00', 1, '2026-02-01 09:00:00', NULL, NULL, NULL, 1, 0),
+    ('Admission Personnel', 'admission@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'admission', 'verified', '2026-02-01 09:05:00', 1, '2026-02-01 09:10:00', NULL, NULL, NULL, 1, 0),
+    ('Juan De Vera', 'pending_admin@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'pending', NULL, NULL, NULL, NULL, NULL, NULL, 0, 1),
+    ('Maria Quinto', 'rejected_admission@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'admission', 'rejected', '2026-01-31 15:00:00', 1, '2026-01-31 15:30:00', 1, '2026-02-02 08:20:00', 'Incomplete requirements', 0, 1);
 
 INSERT INTO students (id_number, name, email, status, created_by)
 VALUES

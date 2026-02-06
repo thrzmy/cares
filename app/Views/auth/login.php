@@ -33,6 +33,7 @@ $success = flash('success');
           <button class="btn btn-primary w-100" type="submit">Login</button>
           <div class="mt-3 small d-flex flex-column flex-sm-row gap-2">
             <a href="<?= e(BASE_PATH) ?>/forgot-password">Forgot password?</a>
+            <a href="<?= e(BASE_PATH) ?>/register">Create account</a>
           </div>
 
         </form>
