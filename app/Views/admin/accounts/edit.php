@@ -8,7 +8,7 @@ $success = flash('success');
   <div>
     <div class="page-kicker">Administrator</div>
     <h5 class="fw-bold mb-1">Edit Account</h5>
-    <p class="page-subtitle">Update account details and access.</p>
+    <p class="page-subtitle">Update account details, role, and access.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Back</a>
@@ -80,12 +80,12 @@ $success = flash('success');
           <?php $role = (string)($user['role'] ?? 'admission'); ?>
           <select class="form-select" name="role" required>
             <option value="administrator" <?= $role === 'administrator' ? 'selected' : '' ?>>Administrator</option>
-            <option value="admission" <?= $role === 'admission' ? 'selected' : '' ?>>Admission</option>
+            <option value="admission" <?= $role === 'admission' ? 'selected' : '' ?>>Admissions</option>
           </select>
         </div>
 
         <div class="col-12 col-md-6">
-          <label class="form-label">Status</label>
+          <label class="form-label">Access Status</label>
           <?php $isActive = (int)($user['is_active'] ?? 1); ?>
           <select class="form-select" name="is_active" required>
             <option value="1" <?= $isActive === 1 ? 'selected' : '' ?>>Active</option>
@@ -105,7 +105,7 @@ $success = flash('success');
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
       <div>
         <h6 class="fw-bold mb-1">Security</h6>
-        <p class="text-muted small mb-0">Reset the account password and force a change on next login.</p>
+        <p class="text-muted small mb-0">Reset the account password and require a change on next login.</p>
       </div>
       <form method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/reset-password">
         <?= csrfField() ?>

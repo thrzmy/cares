@@ -8,7 +8,7 @@ $success = flash('success');
   <div>
     <div class="page-kicker">Administrator</div>
     <h5 class="fw-bold mb-1">Create Account</h5>
-    <p class="page-subtitle">Add a new administrator or admission account.</p>
+    <p class="page-subtitle">Add a new administrator or admissions account.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Back</a>
@@ -56,12 +56,12 @@ $success = flash('success');
           <?php $role = (string)($old['role'] ?? 'admission'); ?>
           <select class="form-select" name="role" required>
             <option value="administrator" <?= $role === 'administrator' ? 'selected' : '' ?>>Administrator</option>
-            <option value="admission" <?= $role === 'admission' ? 'selected' : '' ?>>Admission</option>
+            <option value="admission" <?= $role === 'admission' ? 'selected' : '' ?>>Admissions</option>
           </select>
         </div>
 
         <div class="col-12 col-md-6">
-          <label class="form-label">Status</label>
+          <label class="form-label">Access Status</label>
           <?php $isActive = (int)($old['is_active'] ?? 1); ?>
           <select class="form-select" name="is_active" required>
             <option value="1" <?= $isActive === 1 ? 'selected' : '' ?>>Active</option>
@@ -76,7 +76,7 @@ $success = flash('success');
       </div>
 
       <p class="text-muted small mt-3 mb-0">
-        New accounts are auto-verified, receive a random temporary password via email, and must reset on first login.
+        New accounts are auto-verified, receive a temporary password by email, and must reset on first login.
       </p>
     </form>
   </div>

@@ -8,7 +8,7 @@ $recommendations = $recommendations ?? [];
   <div>
     <div class="page-kicker">Administrator</div>
     <h4 class="fw-bold mb-1">Results & Recommendations</h4>
-    <p class="page-subtitle">View encoded scores and auto-generated course recommendations.</p>
+    <p class="page-subtitle">Review encoded exam scores and course recommendations.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
@@ -25,11 +25,11 @@ $recommendations = $recommendations ?? [];
 
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/scores">
   <div class="col-12 col-md-7">
-    <label class="form-label small">Search</label>
+    <label class="form-label small">Search Students</label>
     <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or ID number">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">Status</label>
+    <label class="form-label small">Admission Status</label>
     <select class="form-select" name="status">
       <option value="">All statuses</option>
       <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
@@ -39,7 +39,7 @@ $recommendations = $recommendations ?? [];
     </select>
   </div>
   <div class="col-12 col-md-2 d-grid">
-    <button class="btn btn-outline-primary" type="submit">Filter</button>
+    <button class="btn btn-outline-primary" type="submit">Apply Filters</button>
   </div>
 </form>
 
@@ -60,7 +60,7 @@ $recommendations = $recommendations ?? [];
           <?php $recs = $recommendations[(int)$s['id']] ?? []; ?>
           <?php if (!empty($recs)): ?>
             <div class="mt-3">
-              <div class="text-muted small mb-1">Top Recommendations</div>
+              <div class="text-muted small mb-1">Top Course Recommendations</div>
               <?php foreach ($recs as $rec): ?>
                 <div class="d-flex justify-content-between small">
                   <span><?= e($rec['course_code']) ?></span>
@@ -69,9 +69,9 @@ $recommendations = $recommendations ?? [];
               <?php endforeach; ?>
             </div>
           <?php else: ?>
-            <div class="text-muted small mt-2">No recommendations yet.</div>
+            <div class="text-muted small mt-2">No recommendations available yet.</div>
           <?php endif; ?>
-          <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/administrator/scores/view?id=<?= (int)$s['id'] ?>">View Scores</a>
+          <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/administrator/scores/view?id=<?= (int)$s['id'] ?>">View Exam Scores</a>
         </div>
       </div>
     <?php endforeach; ?>
@@ -85,7 +85,7 @@ $recommendations = $recommendations ?? [];
             <th>Name</th>
             <th>Email</th>
             <th>Status</th>
-            <th>Top Recommendations</th>
+            <th>Top Course Recommendations</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
@@ -113,7 +113,7 @@ $recommendations = $recommendations ?? [];
                 <?php endif; ?>
               </td>
               <td class="text-end">
-                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores/view?id=<?= (int)$s['id'] ?>">View Scores</a>
+                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores/view?id=<?= (int)$s['id'] ?>">View Exam Scores</a>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -123,7 +123,7 @@ $recommendations = $recommendations ?? [];
   </div>
 <?php else: ?>
   <div class="card shadow-sm">
-    <div class="card-body text-muted">No students found.</div>
+    <div class="card-body text-muted">No matching students found.</div>
   </div>
 <?php endif; ?>
 

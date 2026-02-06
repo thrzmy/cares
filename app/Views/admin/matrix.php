@@ -9,11 +9,11 @@ $currentPage = (int)($pagination['page'] ?? 1);
 <div class="page-header mb-3">
     <div>
         <div class="page-kicker">Administrator</div>
-        <h5 class="fw-bold mb-1">Matrix Management</h5>
-        <p class="page-subtitle">Edit course x exam part weights. (0-100)</p>
+        <h5 class="fw-bold mb-1">Recommendation Matrix</h5>
+        <p class="page-subtitle">Edit course-to-exam-part weights (0-100).</p>
     </div>
     <div class="page-actions">
-        <span class="text-muted small">Tip: blank cells won't overwrite existing values.</span>
+        <span class="text-muted small">Tip: Leave a cell blank to keep the current value.</span>
         <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
     </div>
 </div>
@@ -31,7 +31,7 @@ $currentPage = (int)($pagination['page'] ?? 1);
 
         <?php if (empty($courses) || empty($parts)): ?>
             <div class="alert alert-warning mb-0">
-                Missing data. Make sure you have courses and exam parts seeded.
+                Missing data. Add courses and exam parts before editing weights.
             </div>
         <?php else: ?>
             <div class="d-block d-md-none">
@@ -52,7 +52,7 @@ $currentPage = (int)($pagination['page'] ?? 1);
                                     ?>
                                     <div class="mb-2">
                                         <label class="form-label small mb-1">
-                                            <?= e($p['name']) ?> <span class="text-muted">(Max <?= e((string)$p['max_score']) ?>)</span>
+                                            <?= e($p['name']) ?> <span class="text-muted">(Max Score: <?= e((string)$p['max_score']) ?>)</span>
                                         </label>
                                         <input
                                             class="form-control"
@@ -68,7 +68,7 @@ $currentPage = (int)($pagination['page'] ?? 1);
                         </div>
                     <?php endforeach; ?>
 
-                    <button class="btn btn-primary w-100">Save Matrix</button>
+                    <button class="btn btn-primary w-100">Save Weights</button>
                 </form>
             </div>
             <div class="d-none d-md-block">
@@ -83,7 +83,7 @@ $currentPage = (int)($pagination['page'] ?? 1);
                                     <?php foreach ($parts as $p): ?>
                                         <th class="text-center" style="min-width:160px;">
                                             <?= e($p['name']) ?><br>
-                                            <span class="text-muted small">Max: <?= e((string)$p['max_score']) ?></span>
+                                            <span class="text-muted small">Max Score: <?= e((string)$p['max_score']) ?></span>
                                         </th>
                                     <?php endforeach; ?>
                                 </tr>
@@ -119,7 +119,7 @@ $currentPage = (int)($pagination['page'] ?? 1);
                         </table>
                     </div>
 
-                    <button class="btn btn-primary">Save Matrix</button>
+                    <button class="btn btn-primary">Save Weights</button>
                 </form>
             </div>
         <?php endif; ?>

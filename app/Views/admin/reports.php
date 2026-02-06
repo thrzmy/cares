@@ -29,7 +29,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
   <div>
     <div class="page-kicker">Administrator</div>
     <h4 class="fw-bold mb-1">System Reports</h4>
-    <p class="page-subtitle">Generate summaries for accounts, results, and recommendations.</p>
+    <p class="page-subtitle">Generate summaries for accounts, exams, and recommendations.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
@@ -38,25 +38,25 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
 
 <form class="row g-3 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/reports">
   <div class="col-12 col-md-4 col-lg-3">
-    <label class="form-label small">From</label>
+    <label class="form-label small">Start Date</label>
     <input class="form-control" type="date" name="start_date" value="<?= e((string)($startDate ?? '')) ?>">
   </div>
   <div class="col-12 col-md-4 col-lg-3">
-    <label class="form-label small">To</label>
+    <label class="form-label small">End Date</label>
     <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
   </div>
   <div class="col-12 col-md-4 col-lg-6">
     <label class="form-label small d-none d-md-block">&nbsp;</label>
     <div class="d-grid d-md-flex justify-content-md-end gap-2">
       <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/reports">Clear Filters</a>
-      <button class="btn btn-outline-primary" type="submit">Apply</button>
+      <button class="btn btn-outline-primary" type="submit">Apply Filters</button>
     </div>
   </div>
 </form>
 
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
   <div class="text-muted small">
-    Reporting Period: <span class="fw-semibold"><?= e((string)($periodLabel ?? 'All time')) ?></span>
+    Reporting period: <span class="fw-semibold"><?= e((string)($periodLabel ?? 'All time')) ?></span>
   </div>
   <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-outline-secondary btn-sm <?= $activePreset === 'week' ? 'active' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports?start_date=<?= e($weekStart) ?>&end_date=<?= e($today) ?>">This Week</a>
@@ -69,9 +69,9 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
   <div class="col-12 col-md-6 col-lg-3">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <div class="text-muted small">Total Users</div>
+        <div class="text-muted small">Total Accounts</div>
         <div class="h4 fw-bold mb-0"><?= e((string)($summary['users_total'] ?? 0)) ?></div>
-        <div class="text-muted small mt-2">Active: <?= e((string)($summary['users_active'] ?? 0)) ?></div>
+        <div class="text-muted small mt-2">Active Accounts: <?= e((string)($summary['users_active'] ?? 0)) ?></div>
       </div>
     </div>
   </div>
@@ -80,25 +80,25 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
       <div class="card-body">
         <div class="text-muted small">Total Students</div>
         <div class="h4 fw-bold mb-0"><?= e((string)($summary['students_total'] ?? 0)) ?></div>
-        <div class="text-muted small mt-2">Students w/ Recommendation: <?= e((string)($summary['students_with_recommendations'] ?? 0)) ?></div>
+        <div class="text-muted small mt-2">Students with Recommendations: <?= e((string)($summary['students_with_recommendations'] ?? 0)) ?></div>
       </div>
     </div>
   </div>
   <div class="col-12 col-md-6 col-lg-3">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <div class="text-muted small">Score Entries</div>
+        <div class="text-muted small">Exam Score Entries</div>
         <div class="h4 fw-bold mb-0"><?= e((string)($summary['score_entries'] ?? 0)) ?></div>
-        <div class="text-muted small mt-2">Students w/o Scores: <?= e((string)($summary['students_without_scores'] ?? 0)) ?></div>
+        <div class="text-muted small mt-2">Students without Scores: <?= e((string)($summary['students_without_scores'] ?? 0)) ?></div>
       </div>
     </div>
   </div>
   <div class="col-12 col-md-6 col-lg-3">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <div class="text-muted small">Log Entries</div>
+        <div class="text-muted small">Activity Log Entries</div>
         <div class="h4 fw-bold mb-0"><?= e((string)($summary['log_entries'] ?? 0)) ?></div>
-        <div class="text-muted small mt-2">Tracked Activity Events</div>
+        <div class="text-muted small mt-2">Tracked activity events</div>
       </div>
     </div>
   </div>
@@ -138,7 +138,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
             </div>
           </div>
           <div class="col-12 col-md-6">
-            <div class="text-muted small mb-2">Roles</div>
+            <div class="text-muted small mb-2">User Roles</div>
             <div class="table-responsive">
               <table class="table table-sm align-middle mb-0">
                 <thead class="table-light">
@@ -203,7 +203,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
 </div>
 
 <div class="row g-3 mt-0">
-  <div class="col-12 col-lg-7">
+  <div class="col-12 col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-body">
         <h6 class="fw-bold mb-2">Exam Part Performance</h6>
@@ -214,7 +214,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
                 <th>Exam Part</th>
                 <th class="text-end">Max</th>
                 <th class="text-end">Entries</th>
-                <th class="text-end">Avg Score</th>
+                <th class="text-end">Average Score</th>
               </tr>
             </thead>
             <tbody>
@@ -241,17 +241,17 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
     </div>
   </div>
 
-  <div class="col-12 col-lg-5">
+  <div class="col-12 col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <h6 class="fw-bold mb-2">Top Recommendations</h6>
+        <h6 class="fw-bold mb-2">Top Recommended Courses</h6>
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
             <thead class="table-light">
               <tr>
                 <th>Course</th>
                 <th class="text-end">Students</th>
-                <th class="text-end">Avg Score</th>
+                <th class="text-end">Average Score</th>
               </tr>
             </thead>
             <tbody>
@@ -285,7 +285,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
   <div class="col-12 col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <h6 class="fw-bold mb-2">Top Activity Actions</h6>
+        <h6 class="fw-bold mb-2">Top Activity Types</h6>
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
             <thead class="table-light">

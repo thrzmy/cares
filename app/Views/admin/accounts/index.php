@@ -8,7 +8,7 @@ $error = flash('error');
   <div>
     <div class="page-kicker">Administrator</div>
     <h4 class="fw-bold mb-1">Account Management</h4>
-    <p class="page-subtitle">Manage System Users (Administrators & Admission Personnel).</p>
+    <p class="page-subtitle">Manage system users (administrators and admissions staff).</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts/create">Create Account</a>
@@ -26,19 +26,19 @@ $error = flash('error');
 
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/accounts">
   <div class="col-12 col-md-5">
-    <label class="form-label small">Search</label>
+    <label class="form-label small">Search Accounts</label>
     <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name or email">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">Role</label>
+    <label class="form-label small">User Role</label>
     <select class="form-select" name="role">
       <option value="">All roles</option>
       <option value="administrator" <?= ($roleFilter ?? '') === 'administrator' ? 'selected' : '' ?>>Administrator</option>
-      <option value="admission" <?= ($roleFilter ?? '') === 'admission' ? 'selected' : '' ?>>Admission</option>
+      <option value="admission" <?= ($roleFilter ?? '') === 'admission' ? 'selected' : '' ?>>Admissions</option>
     </select>
   </div>
   <div class="col-12 col-md-2">
-    <label class="form-label small">Status</label>
+    <label class="form-label small">Verification Status</label>
     <select class="form-select" name="status">
       <option value="">All statuses</option>
       <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
@@ -47,7 +47,7 @@ $error = flash('error');
     </select>
   </div>
   <div class="col-12 col-md-2 d-grid">
-    <button class="btn btn-outline-primary" type="submit">Filter</button>
+    <button class="btn btn-outline-primary" type="submit">Apply Filters</button>
   </div>
 </form>
 
@@ -58,6 +58,9 @@ $error = flash('error');
       $isActive = (int)$u['is_active'] === 1;
       $status = (string)($u['account_status'] ?? 'verified');
       $isSystemRole = in_array($u['role'], ['administrator', 'admission'], true);
+      $roleLabel = $u['role'] === 'admission'
+        ? 'Admissions'
+        : ($u['role'] === 'administrator' ? 'Administrator' : ucfirst((string)$u['role']));
       ?>
       <div class="card shadow-sm mb-3">
         <div class="card-body">
@@ -66,7 +69,7 @@ $error = flash('error');
               <div class="fw-semibold"><?= e($u['name']) ?></div>
               <div class="text-muted small"><?= e($u['email']) ?></div>
             </div>
-            <span class="badge text-bg-light border text-uppercase"><?= e($u['role']) ?></span>
+            <span class="badge text-bg-light border text-uppercase"><?= e($roleLabel) ?></span>
           </div>
 
           <div class="mt-3 d-flex flex-wrap gap-2">
@@ -79,7 +82,7 @@ $error = flash('error');
           </div>
 
           <?php if ($status === 'rejected'): ?>
-            <div class="text-muted small mt-2">Reason: <?= e((string)($u['rejection_reason'] ?? '')) ?></div>
+            <div class="text-muted small mt-2">Rejection reason: <?= e((string)($u['rejection_reason'] ?? '')) ?></div>
             <div class="text-muted small">Rejected by: <?= e((string)($u['rejected_by_name'] ?? '-')) ?></div>
             <div class="text-muted small">Rejected at: <?= e(!empty($u['rejected_at']) ? date('M j, Y H:i', strtotime((string)$u['rejected_at'])) : '-') ?></div>
           <?php elseif ($status === 'verified'): ?>
@@ -99,7 +102,7 @@ $error = flash('error');
               data-bs-target="#reverifyModal"
               data-id="<?= (int)$u['id'] ?>"
               data-name="<?= e($u['name']) ?>">
-              Re-Verify Account
+              Re-verify Account
             </button>
           <?php endif; ?>
 
@@ -136,9 +139,9 @@ $error = flash('error');
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
-            <th>Verification</th>
-            <th>Active</th>
-            <th>Details</th>
+            <th>Verification Status</th>
+            <th>Access</th>
+            <th>Verification Details</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
@@ -148,11 +151,14 @@ $error = flash('error');
             $isActive = (int)$u['is_active'] === 1;
             $status = (string)($u['account_status'] ?? 'verified');
             $isSystemRole = in_array($u['role'], ['administrator', 'admission'], true);
+            $roleLabel = $u['role'] === 'admission'
+              ? 'Admissions'
+              : ($u['role'] === 'administrator' ? 'Administrator' : ucfirst((string)$u['role']));
             ?>
             <tr>
               <td class="fw-semibold"><?= e($u['name']) ?></td>
               <td><?= e($u['email']) ?></td>
-              <td><span class="badge text-bg-light border text-uppercase"><?= e($u['role']) ?></span></td>
+              <td><span class="badge text-bg-light border text-uppercase"><?= e($roleLabel) ?></span></td>
               <td>
                 <span class="badge <?= $status === 'verified' ? 'text-bg-success' : ($status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') ?>">
                   <?= e(ucfirst($status)) ?>
@@ -165,14 +171,14 @@ $error = flash('error');
               </td>
               <td class="text-muted small">
                 <?php if ($status === 'rejected'): ?>
-                  <div>Reason: <?= e((string)($u['rejection_reason'] ?? '')) ?></div>
+                  <div>Rejection reason: <?= e((string)($u['rejection_reason'] ?? '')) ?></div>
                   <div>Rejected by: <?= e((string)($u['rejected_by_name'] ?? '-')) ?></div>
                   <div>Rejected at: <?= e(!empty($u['rejected_at']) ? date('M j, Y H:i', strtotime((string)$u['rejected_at'])) : '-') ?></div>
                 <?php elseif ($status === 'verified'): ?>
                   <div>Verified by: <?= e((string)($u['verified_by_name'] ?? '-')) ?></div>
                   <div>Verified at: <?= e(!empty($u['verified_at']) ? date('M j, Y H:i', strtotime((string)$u['verified_at'])) : '-') ?></div>
                 <?php else: ?>
-                  <div>Pending approval</div>
+                  <div>Awaiting verification</div>
                 <?php endif; ?>
               </td>
               <td class="text-end">
@@ -187,7 +193,7 @@ $error = flash('error');
                       data-bs-target="#reverifyModal"
                       data-id="<?= (int)$u['id'] ?>"
                       data-name="<?= e($u['name']) ?>">
-                      Re-Verify
+                      Re-verify
                     </button>
                   <?php endif; ?>
                   <?php if ($isSystemRole && $status === 'pending'): ?>
@@ -220,7 +226,7 @@ $error = flash('error');
   </div>
 <?php else: ?>
   <div class="card shadow-sm">
-    <div class="card-body text-muted">No accounts found.</div>
+    <div class="card-body text-muted">No matching accounts found.</div>
   </div>
 <?php endif; ?>
 
@@ -241,7 +247,7 @@ require __DIR__ . '/../../partials/pagination.php';
         </div>
         <div class="modal-body">
           <p class="mb-0">Verify <strong id="verifyAccountName">this account</strong>?</p>
-          <p class="text-muted small mb-0">This will activate the account and allow login.</p>
+          <p class="text-muted small mb-0">This will activate access and allow login.</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -264,7 +270,7 @@ require __DIR__ . '/../../partials/pagination.php';
         </div>
         <div class="modal-body">
           <p class="mb-0">Re-verify <strong id="reverifyAccountName">this account</strong>?</p>
-          <p class="text-muted small mb-0">This will set the account to verified and allow login.</p>
+          <p class="text-muted small mb-0">This will restore verified status and allow login.</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -287,12 +293,12 @@ require __DIR__ . '/../../partials/pagination.php';
         </div>
         <div class="modal-body">
           <p class="mb-2">Reject <strong id="rejectAccountName">this account</strong>?</p>
-          <label class="form-label small">Reason (optional)</label>
-          <input class="form-control" type="text" name="reason" placeholder="Reason for rejection">
+          <label class="form-label small">Rejection reason (optional)</label>
+          <input class="form-control" type="text" name="reason" placeholder="Add a brief reason (optional)">
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-outline-danger">Confirm Reject</button>
+          <button type="submit" class="btn btn-outline-danger">Confirm Rejection</button>
         </div>
       </form>
     </div>

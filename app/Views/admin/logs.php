@@ -44,8 +44,8 @@ $formatAction = static function (string $action): string {
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Administrator</div>
-    <h4 class="fw-bold mb-1">Monitor Logs</h4>
-    <p class="page-subtitle">Review user activity and system events.</p>
+    <h4 class="fw-bold mb-1">Activity Logs</h4>
+    <p class="page-subtitle">Review user activity, changes, and system events.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
@@ -54,19 +54,19 @@ $formatAction = static function (string $action): string {
 
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/logs">
   <div class="col-12 col-md-6">
-    <label class="form-label small">Search</label>
+    <label class="form-label small">Search Logs</label>
     <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by user, action, entity, or details">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">From</label>
+    <label class="form-label small">From Date</label>
     <input class="form-control" type="date" name="start_date" value="<?= e((string)($startDate ?? '')) ?>">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">To</label>
+    <label class="form-label small">To Date</label>
     <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">Action</label>
+    <label class="form-label small">Action Type</label>
     <select class="form-select" name="action">
       <option value="">All actions</option>
       <?php foreach ($actionList as $action): ?>
@@ -77,7 +77,7 @@ $formatAction = static function (string $action): string {
     </select>
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">Entity</label>
+    <label class="form-label small">Entity Type</label>
     <select class="form-select" name="entity">
       <option value="">All entities</option>
       <?php foreach ($entityList as $entity): ?>
@@ -89,7 +89,7 @@ $formatAction = static function (string $action): string {
   </div>
   <div class="col-12 col-md-12 d-grid d-md-flex justify-content-end gap-2">
     <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/logs">Clear Filters</a>
-    <button class="btn btn-outline-primary" type="submit">Filter</button>
+    <button class="btn btn-outline-primary" type="submit">Apply Filters</button>
   </div>
 </form>
 
@@ -126,13 +126,13 @@ $formatAction = static function (string $action): string {
 
           <div class="mt-3 text-muted small">
             <div>
-              Entity:
+              Record:
               <?php if ($entityName !== '' && ($entity === 'students' || $entity === 'users')): ?>
                 <?= e($entityName) ?>
               <?php else: ?>
                 <?= e($entity !== '' ? ucfirst($entity) : '-') ?>
                 <?php if ($entityName !== ''): ?>
-                  — <?= e($entityName) ?>
+                  -  <?= e($entityName) ?>
                 <?php elseif ($entityId): ?>
                   #<?= e((string)$entityId) ?>
                 <?php endif; ?>
@@ -141,7 +141,7 @@ $formatAction = static function (string $action): string {
                 <span class="text-muted">(<?= e($entityRef) ?>)</span>
               <?php endif; ?>
             </div>
-            <div>Time: <?= e($createdAt) ?></div>
+            <div>Occurred: <?= e($createdAt) ?></div>
             <div>Details: <?= e((string)($log['details'] ?? '-')) ?></div>
           </div>
         </div>
@@ -154,10 +154,10 @@ $formatAction = static function (string $action): string {
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th>Time</th>
+            <th>Date/Time</th>
             <th>User</th>
             <th>Action</th>
-            <th>Entity</th>
+            <th>Record</th>
             <th>Details</th>
           </tr>
         </thead>
@@ -196,7 +196,7 @@ $formatAction = static function (string $action): string {
                 <?php else: ?>
                   <?= e($entity !== '' ? ucfirst($entity) : '-') ?>
                   <?php if ($entityName !== ''): ?>
-                    — <?= e($entityName) ?>
+                    -  <?= e($entityName) ?>
                   <?php elseif ($entityId): ?>
                     #<?= e((string)$entityId) ?>
                   <?php endif; ?>
@@ -214,7 +214,7 @@ $formatAction = static function (string $action): string {
   </div>
 <?php else: ?>
   <div class="card shadow-sm">
-    <div class="card-body text-muted">No logs found.</div>
+    <div class="card-body text-muted">No activity logs found.</div>
   </div>
 <?php endif; ?>
 
@@ -222,3 +222,4 @@ $formatAction = static function (string $action): string {
 $pagination = $pagination ?? null;
 require __DIR__ . '/../partials/pagination.php';
 ?>
+

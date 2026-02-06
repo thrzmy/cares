@@ -8,7 +8,7 @@ $error = flash('error');
   <div>
     <div class="page-kicker">Administrator</div>
     <h4 class="fw-bold mb-1">Student Management</h4>
-    <p class="page-subtitle">Manage student details and admission status.</p>
+    <p class="page-subtitle">Manage student details, IDs, and admission status.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/students/create">Add Student</a>
@@ -26,11 +26,11 @@ $error = flash('error');
 
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/students">
   <div class="col-12 col-md-7">
-    <label class="form-label small">Search</label>
+    <label class="form-label small">Search Students</label>
     <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or ID number">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">Status</label>
+    <label class="form-label small">Admission Status</label>
     <select class="form-select" name="status">
       <option value="">All statuses</option>
       <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
@@ -40,7 +40,7 @@ $error = flash('error');
     </select>
   </div>
   <div class="col-12 col-md-2 d-grid">
-    <button class="btn btn-outline-primary" type="submit">Filter</button>
+    <button class="btn btn-outline-primary" type="submit">Apply Filters</button>
   </div>
 </form>
 
@@ -53,13 +53,13 @@ $error = flash('error');
             <div>
               <div class="fw-semibold"><?= e($s['name']) ?></div>
               <div class="text-muted small"><?= e($s['email']) ?></div>
-              <div class="text-muted small">ID: <?= e((string)($s['id_number'] ?? 'Not set')) ?></div>
+              <div class="text-muted small">Student ID: <?= e((string)($s['id_number'] ?? 'Not provided')) ?></div>
             </div>
             <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
               <?= e(ucfirst((string)($s['status'] ?? 'pending'))) ?>
             </span>
           </div>
-          <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/administrator/students/edit?id=<?= (int)$s['id'] ?>">Edit Student</a>
+          <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/administrator/students/edit?id=<?= (int)$s['id'] ?>">Edit Record</a>
         </div>
       </div>
     <?php endforeach; ?>
@@ -71,7 +71,7 @@ $error = flash('error');
         <thead class="table-light">
           <tr>
             <th>Name</th>
-            <th>ID Number</th>
+            <th>Student ID</th>
             <th>Email</th>
             <th>Status</th>
             <th class="text-end">Actions</th>
@@ -81,7 +81,7 @@ $error = flash('error');
           <?php foreach ($students as $s): ?>
             <tr>
               <td class="fw-semibold"><?= e($s['name']) ?></td>
-              <td><?= e((string)($s['id_number'] ?? 'Not set')) ?></td>
+              <td><?= e((string)($s['id_number'] ?? 'Not provided')) ?></td>
               <td><?= e($s['email']) ?></td>
               <td>
                 <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
@@ -89,7 +89,7 @@ $error = flash('error');
                 </span>
               </td>
               <td class="text-end">
-                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/students/edit?id=<?= (int)$s['id'] ?>">Edit</a>
+                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/students/edit?id=<?= (int)$s['id'] ?>">Edit Record</a>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -99,7 +99,7 @@ $error = flash('error');
   </div>
 <?php else: ?>
   <div class="card shadow-sm">
-    <div class="card-body text-muted">No students found.</div>
+    <div class="card-body text-muted">No matching students found.</div>
   </div>
 <?php endif; ?>
 

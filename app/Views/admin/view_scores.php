@@ -4,11 +4,11 @@ declare(strict_types=1);
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Administrator</div>
-    <h4 class="fw-bold mb-1">View Scores</h4>
-    <p class="page-subtitle"><?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
+    <h4 class="fw-bold mb-1">Exam Scores</h4>
+    <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
   </div>
   <div class="page-actions">
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores">Back to Results</a>
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores">Back to Results & Recommendations</a>
   </div>
 </div>
 
@@ -20,8 +20,8 @@ declare(strict_types=1);
           <thead class="table-light">
             <tr>
               <th>Exam Part</th>
-              <th class="text-end">Score</th>
-              <th class="text-end">Max</th>
+              <th class="text-end">Score Earned</th>
+              <th class="text-end">Maximum</th>
             </tr>
           </thead>
           <tbody>
@@ -41,7 +41,7 @@ declare(strict_types=1);
         </table>
       </div>
     <?php else: ?>
-      <div class="text-muted">No exam parts configured.</div>
+      <div class="text-muted">No exam parts configured yet.</div>
     <?php endif; ?>
   </div>
 </div>
