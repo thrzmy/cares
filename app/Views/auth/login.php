@@ -44,10 +44,6 @@ $success = flash('success');
           </div>
 
         </form>
-
-        <div class="text-muted small mt-3">
-          Web-Based Admission Test Assessment with Intelligent Course Recommendation
-        </div>
       </div>
     </div>
   </div>

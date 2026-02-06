@@ -16,18 +16,14 @@
 body.app-body {
   font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
   background:
-    radial-gradient(1200px 600px at 8% -10%, #f2dfcf 0%, transparent 60%),
-    radial-gradient(900px 520px at 100% 0%, #f3ecd7 0%, transparent 55%),
-    linear-gradient(180deg, #fbf7f2 0%, #f6f2ed 100%);
+    radial-gradient(900px 500px at 10% -10%, #f5e9dc 0%, transparent 70%),
+    linear-gradient(180deg, #fbf8f4 0%, #f6f2ed 100%);
   color: var(--cares-ink);
 }
 
 h1,
 h2,
 h3,
-h4,
-h5,
-h6,
 .navbar-brand,
 .auth-title {
   font-family: "Cinzel", "Times New Roman", serif;
@@ -68,18 +64,73 @@ a:hover {
   object-fit: contain;
 }
 
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  border: 1px solid var(--cares-border);
+  border-top: 3px solid var(--cares-gold);
+  background: #ffffff;
+  box-shadow: 0 10px 20px rgba(35, 18, 8, 0.08);
+}
+
+.page-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--cares-maroon);
+  margin-bottom: 0.35rem;
+}
+
+.page-subtitle {
+  color: var(--cares-muted);
+  margin-bottom: 0;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .navbar .dropdown-menu {
   z-index: 1050;
 }
 
 .card {
   border: 1px solid var(--cares-border);
-  border-radius: 18px;
-  box-shadow: var(--cares-shadow);
+  border-radius: 16px;
+  box-shadow: 0 10px 20px rgba(35, 18, 8, 0.08);
 }
 
 .card .card-body {
   padding: 1.5rem;
+}
+
+.content-card {
+  border: 1px solid var(--cares-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 20px rgba(35, 18, 8, 0.08);
+}
+
+.admin-tile {
+  border: 1px solid var(--cares-border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: #ffffff;
+  box-shadow: 0 8px 16px rgba(35, 18, 8, 0.06);
+  height: 100%;
+}
+
+.admin-tile .tile-title {
+  font-family: "Cinzel", "Times New Roman", serif;
+  letter-spacing: 0.02em;
 }
 
 .auth-shell {
@@ -95,6 +146,12 @@ a:hover {
   height: 44px;
   object-fit: contain;
   filter: drop-shadow(0 6px 12px rgba(51, 18, 5, 0.22));
+}
+
+.card-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
 }
 
 .btn-primary {

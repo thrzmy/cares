@@ -2,16 +2,24 @@
 declare(strict_types=1);
 ?>
 
+<div class="page-header mb-3">
+  <div>
+    <div class="page-kicker">Administrator</div>
+    <h5 class="fw-bold mb-1">My Profile</h5>
+    <p class="page-subtitle">Update your account details and security settings.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
+  </div>
+</div>
+
 <div class="row g-3">
   <div class="col-12 col-lg-6">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm content-card">
       <div class="card-body">
-        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
-          <div>
-            <h5 class="fw-bold mb-1">My Profile</h5>
-            <p class="text-muted mb-3">Update your account details.</p>
-          </div>
-          <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
+        <div>
+          <h5 class="fw-bold mb-1">Account Details</h5>
+          <p class="text-muted mb-3">Update your account details.</p>
         </div>
 
         <?php if (!empty($success)): ?>
@@ -39,7 +47,7 @@ declare(strict_types=1);
   </div>
 
   <div class="col-12 col-lg-6">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm content-card">
       <div class="card-body">
         <h5 class="fw-bold mb-1">Change Password</h5>
         <p class="text-muted mb-3">Use a strong password and keep it secure.</p>

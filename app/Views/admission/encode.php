@@ -3,12 +3,15 @@ declare(strict_types=1);
 $success = $success ?? null;
 $error = $error ?? null;
 ?>
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+<div class="page-header mb-3">
   <div>
+    <div class="page-kicker">Admission</div>
     <h4 class="fw-bold mb-1">Encode Test Results</h4>
-    <p class="text-muted mb-0">Encode scores for pending students without records.</p>
+    <p class="page-subtitle">Encode scores for pending students without records.</p>
   </div>
-  <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission">Back to Dashboard</a>
+  <div class="page-actions">
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission">Back to Dashboard</a>
+  </div>
 </div>
 
 <?php if (!empty($success)): ?>

@@ -4,12 +4,13 @@ $success = flash('success');
 $error = flash('error');
 ?>
 
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+<div class="page-header mb-3">
   <div>
+    <div class="page-kicker">Administrator</div>
     <h4 class="fw-bold mb-1">Student Management</h4>
-    <p class="text-muted mb-0">Student records are separate from system user accounts.</p>
+    <p class="page-subtitle">Student records are separate from system user accounts.</p>
   </div>
-  <div class="d-flex flex-wrap gap-2">
+  <div class="page-actions">
     <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/students/create">Add Student</a>
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
   </div>

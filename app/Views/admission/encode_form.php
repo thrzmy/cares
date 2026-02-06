@@ -5,16 +5,19 @@ $success = $success ?? null;
 $mode = (string)($mode ?? 'encode');
 ?>
 
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+<div class="page-header mb-3">
   <div>
+    <div class="page-kicker">Admission</div>
     <h4 class="fw-bold mb-1">Encode Test Results</h4>
-    <p class="text-muted mb-0">Record scores per exam part for this student.</p>
+    <p class="page-subtitle">Record scores per exam part for this student.</p>
   </div>
-  <?php if ($mode === 'edit'): ?>
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/storage">Back to List</a>
-  <?php else: ?>
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode">Back to List</a>
-  <?php endif; ?>
+  <div class="page-actions">
+    <?php if ($mode === 'edit'): ?>
+      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/storage">Back to List</a>
+    <?php else: ?>
+      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode">Back to List</a>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php if (!empty($success)): ?>
@@ -25,7 +28,7 @@ $mode = (string)($mode ?? 'encode');
   <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
-<div class="card shadow-sm mb-3">
+<div class="card shadow-sm content-card mb-3">
   <div class="card-body">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
       <div>
@@ -47,7 +50,7 @@ $mode = (string)($mode ?? 'encode');
     <input type="hidden" name="id" value="<?= (int)$student['id'] ?>">
     <input type="hidden" name="mode" value="<?= e($mode) ?>">
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm content-card">
       <div class="card-body">
         <div class="row g-3">
           <?php foreach ($parts as $part): ?>

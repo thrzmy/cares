@@ -4,20 +4,20 @@ declare(strict_types=1);
 $success = flash('success');
 ?>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-            <div>
-                <h5 class="fw-bold mb-1">Matrix Management</h5>
-                <p class="text-muted mb-0">Edit course x exam part weights. (0-100)</p>
-            </div>
-            <div class="d-flex flex-wrap align-items-center gap-2">
-                <span class="text-muted small">Tip: blank cells won't overwrite existing values.</span>
-                <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
-            </div>
-        </div>
+<div class="page-header mb-3">
+    <div>
+        <div class="page-kicker">Administrator</div>
+        <h5 class="fw-bold mb-1">Matrix Management</h5>
+        <p class="page-subtitle">Edit course x exam part weights. (0-100)</p>
+    </div>
+    <div class="page-actions">
+        <span class="text-muted small">Tip: blank cells won't overwrite existing values.</span>
+        <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
+    </div>
+</div>
 
-        <hr>
+<div class="card shadow-sm content-card">
+    <div class="card-body">
 
         <?php if (!empty($success)): ?>
             <div class="alert alert-success"><?= e($success) ?></div>

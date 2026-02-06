@@ -4,12 +4,15 @@ $success = $success ?? null;
 $error = $error ?? null;
 $recommendations = $recommendations ?? [];
 ?>
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+<div class="page-header mb-3">
   <div>
+    <div class="page-kicker">Administrator</div>
     <h4 class="fw-bold mb-1">Results & Recommendations</h4>
-    <p class="text-muted mb-0">Encoded scores auto-generate top course recommendations.</p>
+    <p class="page-subtitle">Encoded scores auto-generate top course recommendations.</p>
   </div>
-  <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
+  <div class="page-actions">
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
+  </div>
 </div>
 
 <?php if (!empty($success)): ?>

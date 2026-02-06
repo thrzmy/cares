@@ -3,11 +3,15 @@
 declare(strict_types=1);
 $success = flash('success');
 ?>
-<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 2rem);">
+<div class="row justify-content-center align-items-center auth-shell">
   <div class="col-12 col-md-6 col-lg-5">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm auth-card">
       <div class="card-body p-4">
-        <h4 class="fw-bold mb-1">Verify Your Email</h4>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <img class="auth-logo" src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
+          <div class="text-uppercase small text-muted">Academic Portal</div>
+        </div>
+        <h4 class="fw-bold mb-1 auth-title">Verify Your Email</h4>
         <p class="text-muted mb-4">Enter the code sent to your email.</p>
 
         <?php if (!empty($success)): ?>

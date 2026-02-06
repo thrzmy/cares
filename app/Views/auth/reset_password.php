@@ -1,9 +1,13 @@
 <?php declare(strict_types=1); ?>
-<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 2rem);">
+<div class="row justify-content-center align-items-center auth-shell">
   <div class="col-12 col-md-6 col-lg-5">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm auth-card">
       <div class="card-body p-4">
-        <h5 class="fw-bold mb-1">Reset Password</h5>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <img class="auth-logo" src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
+          <div class="text-uppercase small text-muted">Academic Portal</div>
+        </div>
+        <h5 class="fw-bold mb-1 auth-title">Reset Password</h5>
         <p class="text-muted mb-3">Enter a new password.</p>
 
         <?php if (!empty($error)): ?>
