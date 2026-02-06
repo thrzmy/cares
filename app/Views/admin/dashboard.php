@@ -10,7 +10,7 @@ declare(strict_types=1);
       <div class="col-12 col-md-6">
         <div class="border rounded p-3 bg-white">
           <h6 class="fw-bold mb-1">Account Management</h6>
-          <p class="text-muted small mb-2">System users only.</p>
+          <p class="text-muted small mb-2">Manage System Users (Administrators & Admission Personnel).</p>
           <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Open</a>
         </div>
       </div>
@@ -18,7 +18,7 @@ declare(strict_types=1);
       <div class="col-12 col-md-6">
         <div class="border rounded p-3 bg-white">
           <h6 class="fw-bold mb-1">Student Management</h6>
-          <p class="text-muted small mb-2">Manage student accounts.</p>
+          <p class="text-muted small mb-2">Manage student records.</p>
           <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/students">Open</a>
         </div>
       </div>
