@@ -11,7 +11,7 @@ $success = flash('success');
         <h5 class="fw-bold mb-1">Edit Account</h5>
         <p class="text-muted mb-0">Update account details and access.</p>
       </div>
-      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admin/accounts">Back to list</a>
+      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Back to list</a>
     </div>
 
     <hr>
@@ -24,11 +24,33 @@ $success = flash('success');
       <div class="alert alert-danger"><?= e((string)$error) ?></div>
     <?php endif; ?>
 
-    <form method="post" action="<?= e(BASE_PATH) ?>/admin/accounts/edit">
+    <form method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/edit">
       <?= csrfField() ?>
       <input type="hidden" name="id" value="<?= e((string)($user['id'] ?? '')) ?>">
 
       <div class="row g-3">
+        <div class="col-12">
+          <?php $status = (string)($user['account_status'] ?? 'verified'); ?>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="badge <?= $status === 'verified' ? 'text-bg-success' : ($status === 'rejected' ? 'text-bg-danger' : 'text-bg-warning') ?>">
+              <?= e(ucfirst($status)) ?>
+            </span>
+            <?php if ($status === 'rejected' && !empty($user['rejection_reason'])): ?>
+              <span class="text-muted small">Reason: <?= e((string)$user['rejection_reason']) ?></span>
+            <?php endif; ?>
+          </div>
+          <?php if ($status === 'verified'): ?>
+            <div class="mt-2 text-muted small">
+              <div>Verified by: <?= e((string)($user['verified_by_name'] ?? '-')) ?></div>
+              <div>Verified at: <?= e(!empty($user['verified_at']) ? date('M j, Y H:i', strtotime((string)$user['verified_at'])) : '-') ?></div>
+            </div>
+          <?php elseif ($status === 'rejected'): ?>
+            <div class="mt-2 text-muted small">
+              <div>Rejected by: <?= e((string)($user['rejected_by_name'] ?? '-')) ?></div>
+              <div>Rejected at: <?= e(!empty($user['rejected_at']) ? date('M j, Y H:i', strtotime((string)$user['rejected_at'])) : '-') ?></div>
+            </div>
+          <?php endif; ?>
+        </div>
         <div class="col-12 col-md-6">
           <label class="form-label">Name</label>
           <input
@@ -53,10 +75,10 @@ $success = flash('success');
 
         <div class="col-12 col-md-6">
           <label class="form-label">Role</label>
-          <?php $role = (string)($user['role'] ?? 'guidance'); ?>
+          <?php $role = (string)($user['role'] ?? 'admission'); ?>
           <select class="form-select" name="role" required>
-            <option value="admin" <?= $role === 'admin' ? 'selected' : '' ?>>Admin</option>
-            <option value="guidance" <?= $role === 'guidance' ? 'selected' : '' ?>>Guidance</option>
+            <option value="administrator" <?= $role === 'administrator' ? 'selected' : '' ?>>Administrator</option>
+            <option value="admission" <?= $role === 'admission' ? 'selected' : '' ?>>Admission</option>
           </select>
         </div>
 
@@ -72,7 +94,7 @@ $success = flash('success');
 
       <div class="d-flex flex-wrap gap-2 mt-4">
         <button class="btn btn-primary" type="submit">Save Changes</button>
-        <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admin/accounts">Cancel</a>
+        <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/accounts">Cancel</a>
       </div>
     </form>
 
@@ -83,7 +105,7 @@ $success = flash('success');
         <h6 class="fw-bold mb-1">Security</h6>
         <p class="text-muted small mb-0">Reset the account password and force a change on next login.</p>
       </div>
-      <form method="post" action="<?= e(BASE_PATH) ?>/admin/accounts/reset-password">
+      <form method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/reset-password">
         <?= csrfField() ?>
         <input type="hidden" name="id" value="<?= e((string)($user['id'] ?? '')) ?>">
         <button class="btn btn-outline-danger" type="submit">Reset Password</button>

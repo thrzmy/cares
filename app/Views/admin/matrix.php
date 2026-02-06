@@ -8,11 +8,11 @@ $success = flash('success');
     <div class="card-body">
         <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
             <div>
-                <h5 class="fw-bold mb-1">Weights Matrix</h5>
-                <p class="text-muted mb-0">Edit course × exam part weights. (0–100)</p>
+                <h5 class="fw-bold mb-1">Matrix Management</h5>
+                <p class="text-muted mb-0">Edit course x exam part weights. (0-100)</p>
             </div>
             <div class="text-muted small">
-                Tip: blank cells won’t overwrite existing values.
+                Tip: blank cells won't overwrite existing values.
             </div>
         </div>
 
@@ -31,9 +31,8 @@ $success = flash('success');
                 Missing data. Make sure you have courses and exam parts seeded.
             </div>
         <?php else: ?>
-            <!-- Mobile-friendly: cards -->
             <div class="d-block d-md-none">
-                <form method="post" action="<?= e(BASE_PATH) ?>/guidance/weights">
+                <form method="post" action="<?= e(BASE_PATH) ?>/administrator/matrix">
                     <?= csrfField() ?>
                     <?php foreach ($courses as $c): ?>
                         <?php $courseId = (int)$c['id']; ?>
@@ -65,11 +64,11 @@ $success = flash('success');
                         </div>
                     <?php endforeach; ?>
 
-                    <button class="btn btn-primary w-100">Save Weights</button>
+                    <button class="btn btn-primary w-100">Save Matrix</button>
                 </form>
             </div>
             <div class="d-none d-md-block">
-                <form method="post" action="<?= e(BASE_PATH) ?>/guidance/weights">
+                <form method="post" action="<?= e(BASE_PATH) ?>/administrator/matrix">
                     <?= csrfField() ?>
                     <div class="table-responsive">
                         <table class="table table-bordered align-middle">
@@ -115,7 +114,7 @@ $success = flash('success');
                         </table>
                     </div>
 
-                    <button class="btn btn-primary">Save Weights</button>
+                    <button class="btn btn-primary">Save Matrix</button>
                 </form>
             </div>
         <?php endif; ?>

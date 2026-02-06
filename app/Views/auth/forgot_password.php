@@ -6,7 +6,7 @@ declare(strict_types=1); ?>
         <div class="card shadow-sm">
             <div class="card-body p-4">
                 <h5 class="fw-bold mb-1">Forgot Password</h5>
-                <p class="text-muted mb-3">We’ll send a reset link to your email.</p>
+                <p class="text-muted mb-3">We'll send a reset link to your email.</p>
 
                 <?php $success = flash('success'); ?>
                 <?php if (!empty($success)): ?>

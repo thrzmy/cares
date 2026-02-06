@@ -1,0 +1,96 @@
+:root {
+  --cares-primary: #1f6b73;
+  --cares-primary-600: #17555b;
+  --cares-accent: #f0b56a;
+  --cares-bg: #f4f6f8;
+  --cares-ink: #1a202c;
+  --cares-muted: #5b6673;
+  --cares-border: #e2e8f0;
+  --cares-card: #ffffff;
+}
+
+body.app-body {
+  font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: radial-gradient(1200px 600px at 10% -20%, #e8f1f2 0%, #f4f6f8 45%, #f9fafb 100%);
+  color: var(--cares-ink);
+}
+
+a {
+  color: var(--cares-primary);
+}
+
+a:hover {
+  color: var(--cares-primary-600);
+}
+
+.navbar.app-nav {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+}
+
+.card {
+  border: 1px solid var(--cares-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.card .card-body {
+  padding: 1.5rem;
+}
+
+.btn-primary {
+  background-color: var(--cares-primary);
+  border-color: var(--cares-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--cares-primary-600);
+  border-color: var(--cares-primary-600);
+}
+
+.btn-outline-primary {
+  color: var(--cares-primary);
+  border-color: var(--cares-primary);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  background-color: var(--cares-primary);
+  border-color: var(--cares-primary);
+}
+
+.badge.text-bg-light {
+  background-color: #f8fafc !important;
+}
+
+.table thead th {
+  white-space: nowrap;
+}
+
+.table-responsive {
+  border-radius: 12px;
+  border: 1px solid var(--cares-border);
+}
+
+.form-control,
+.form-select {
+  border-radius: 10px;
+}
+
+@media (max-width: 575.98px) {
+  .card .card-body {
+    padding: 1.25rem;
+  }
+
+  .nav-auth {
+    width: 100%;
+  }
+
+  .nav-auth .btn,
+  .nav-auth .badge,
+  .nav-auth .text-muted {
+    width: 100%;
+    text-align: center;
+  }
+}

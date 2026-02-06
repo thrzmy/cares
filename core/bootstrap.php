@@ -12,11 +12,11 @@ require_once __DIR__ . '/Request.php';
 require_once __DIR__ . '/Router.php';
 require_once __DIR__ . '/View.php';
 
-// Basic “manual autoload” for our app classes
+// Basic manual autoload for our app classes
 require_once __DIR__ . '/../app/Controllers/AccountsController.php';
 require_once __DIR__ . '/../app/Controllers/AuthController.php';
 require_once __DIR__ . '/../app/Controllers/AdminController.php';
-require_once __DIR__ . '/../app/Controllers/GuidanceController.php';
+require_once __DIR__ . '/../app/Controllers/AdmissionController.php';
 
 require_once __DIR__ . '/../app/Middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../app/Middleware/RoleMiddleware.php';

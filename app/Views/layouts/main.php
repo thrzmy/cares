@@ -12,13 +12,18 @@ declare(strict_types=1);
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title><?= e(APP_NAME . (isset($title) ? " - $title" : "")) ?></title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Bootstrap (capstone friendly) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= e(BASE_PATH) ?>/assets/app.css" rel="stylesheet">
 </head>
 
-<body class="bg-light">
+<body class="bg-light app-body">
 
-    <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom app-nav">
         <div class="container">
 
             <!-- Brand -->
@@ -38,32 +43,77 @@ declare(strict_types=1);
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <?php if (!empty($_SESSION['user_id'])): ?>
 
-                        <?php if (currentRole() === 'admin'): ?>
+                        <?php if (currentRole() === 'administrator'): ?>
                             <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admin')) ?>" href="<?= e(BASE_PATH) ?>/admin">
+                                <a class="nav-link <?= e(isActive('/administrator')) ?>" href="<?= e(BASE_PATH) ?>/administrator">
                                     Dashboard
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admin/scores')) ?>" href="<?= e(BASE_PATH) ?>/admin/scores">
-                                    Scores
+                                <a class="nav-link <?= e(isActive('/administrator/accounts')) ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">
+                                    Account Management
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admin/results')) ?>" href="<?= e(BASE_PATH) ?>/admin/results">
-                                    Results
+                                <a class="nav-link <?= e(isActive('/administrator/matrix')) ?>" href="<?= e(BASE_PATH) ?>/administrator/matrix">
+                                    Matrix Management
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/administrator/scores')) ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">
+                                    Encode Results
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/administrator/results')) ?>" href="<?= e(BASE_PATH) ?>/administrator/results">
+                                    View Results
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/administrator/logs')) ?>" href="<?= e(BASE_PATH) ?>/administrator/logs">
+                                    Monitor Logs
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/administrator/reports')) ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">
+                                    Reports
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/administrator/students')) ?>" href="<?= e(BASE_PATH) ?>/administrator/students">
+                                    Student Management
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/administrator/profile')) ?>" href="<?= e(BASE_PATH) ?>/administrator/profile">
+                                    My Profile
                                 </a>
                             </li>
 
-                        <?php elseif (currentRole() === 'guidance'): ?>
+                        <?php elseif (currentRole() === 'admission'): ?>
                             <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/guidance')) ?>" href="<?= e(BASE_PATH) ?>/guidance">
+                                <a class="nav-link <?= e(isActive('/admission')) ?>" href="<?= e(BASE_PATH) ?>/admission">
                                     Dashboard
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/guidance/weights')) ?>" href="<?= e(BASE_PATH) ?>/guidance/weights">
-                                    Weights
+                                <a class="nav-link <?= e(isActive('/admission/encode')) ?>" href="<?= e(BASE_PATH) ?>/admission/encode">
+                                    Encode Results
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/admission/results')) ?>" href="<?= e(BASE_PATH) ?>/admission/results">
+                                    View Results
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/admission/storage')) ?>" href="<?= e(BASE_PATH) ?>/admission/storage">
+                                    Result Storage
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= e(isActive('/admission/students')) ?>" href="<?= e(BASE_PATH) ?>/admission/students">
+                                    Account Management
                                 </a>
                             </li>
                         <?php endif; ?>
@@ -72,10 +122,11 @@ declare(strict_types=1);
                 </ul>
 
                 <!-- RIGHT: user info / auth -->
-                <div class="d-flex gap-2 align-items-center">
+                <div class="d-flex gap-2 align-items-center nav-auth">
                     <?php if (!empty($_SESSION['user_id'])): ?>
+                        <?php $roleLabel = ucfirst((string)($_SESSION['role'] ?? '')); ?>
                         <span class="badge text-bg-light border">
-                            <?= e((string)($_SESSION['role'] ?? '')) ?>
+                            <?= e($roleLabel) ?>
                         </span>
                         <span class="text-muted small d-none d-md-inline">
                             <?= e((string)($_SESSION['name'] ?? '')) ?>

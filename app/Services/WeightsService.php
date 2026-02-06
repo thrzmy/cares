@@ -65,7 +65,7 @@ final class WeightsService
                 foreach ($parts as $examPartId => $weightRaw) {
                     $weightRaw = trim((string)$weightRaw);
 
-                    // Allow blank to mean "skip" (don’t overwrite)
+                    // Allow blank to mean "skip" (don't overwrite)
                     if ($weightRaw === '') {
                         continue;
                     }

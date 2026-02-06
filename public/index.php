@@ -28,56 +28,90 @@ $router->post('/forgot-password', [AuthController::class, 'forgotPassword']);
 $router->get('/reset-password', [AuthController::class, 'showResetPassword']);
 $router->post('/reset-password', [AuthController::class, 'resetPassword']);
 
-$router->get('/admin', function () {
-    RoleMiddleware::requireRole('admin');
-    AdminController::dashboard();
-});
+$router->get('/admin', fn() => redirect('/administrator'));
+$router->get('/guidance', fn() => redirect('/admission'));
 
-$router->get('/admin/accounts', function () {
-    RoleMiddleware::requireRole('admin');
+$router->get('/administrator', [AdminController::class, 'dashboard']);
+
+$router->get('/administrator/accounts', function () {
+    RoleMiddleware::requireRole('administrator');
     AccountsController::index();
 });
 
-$router->get('/admin/accounts/create', function () {
-    RoleMiddleware::requireRole('admin');
+$router->get('/administrator/accounts/create', function () {
+    RoleMiddleware::requireRole('administrator');
     AccountsController::create();
 });
 
-$router->post('/admin/accounts/create', function () {
-    RoleMiddleware::requireRole('admin');
+$router->post('/administrator/accounts/create', function () {
+    RoleMiddleware::requireRole('administrator');
     AccountsController::store();
 });
 
-$router->get('/admin/accounts/edit', function () {
-    RoleMiddleware::requireRole('admin');
+$router->get('/administrator/accounts/edit', function () {
+    RoleMiddleware::requireRole('administrator');
     AccountsController::edit();
 });
 
-$router->post('/admin/accounts/edit', function () {
-    RoleMiddleware::requireRole('admin');
+$router->post('/administrator/accounts/edit', function () {
+    RoleMiddleware::requireRole('administrator');
     AccountsController::update();
 });
 
-$router->post('/admin/accounts/toggle', function () {
-    RoleMiddleware::requireRole('admin');
+$router->post('/administrator/accounts/toggle', function () {
+    RoleMiddleware::requireRole('administrator');
     AccountsController::toggleActive();
 });
 
-$router->post('/admin/accounts/reset-password', function () {
-    RoleMiddleware::requireRole('admin');
+$router->post('/administrator/accounts/reset-password', function () {
+    RoleMiddleware::requireRole('administrator');
     AccountsController::resetPassword();
 });
-
-
-$router->get('/admin/scores', [AdminController::class, 'scores']);
-$router->get('/admin/results', [AdminController::class, 'results']);
-
-$router->get('/guidance', function () {
-    RoleMiddleware::requireRole('guidance');
-    GuidanceController::dashboard();
+$router->post('/administrator/accounts/verify', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::verify();
+});
+$router->post('/administrator/accounts/reject', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::reject();
 });
 
-$router->get('/guidance/weights', [GuidanceController::class, 'weights']);
-$router->post('/guidance/weights', [GuidanceController::class, 'saveWeights']);
+$router->get('/administrator/matrix', [AdminController::class, 'matrix']);
+$router->post('/administrator/matrix', [AdminController::class, 'saveMatrix']);
+$router->get('/administrator/scores', [AdminController::class, 'scores']);
+$router->get('/administrator/results', [AdminController::class, 'results']);
+$router->get('/administrator/logs', [AdminController::class, 'logs']);
+$router->get('/administrator/reports', [AdminController::class, 'reports']);
+$router->get('/administrator/profile', [AdminController::class, 'profile']);
+$router->post('/administrator/profile', [AdminController::class, 'updateProfile']);
+$router->post('/administrator/profile/password', [AdminController::class, 'updatePassword']);
+$router->get('/administrator/students', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::students();
+});
+$router->get('/administrator/students/create', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::createStudent();
+});
+$router->post('/administrator/students/create', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::storeStudent();
+});
+$router->get('/administrator/students/edit', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::editStudent();
+});
+$router->post('/administrator/students/edit', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::updateStudent();
+});
+
+$router->get('/admission', [AdmissionController::class, 'dashboard']);
+$router->get('/admission/encode', [AdmissionController::class, 'encode']);
+$router->get('/admission/results', [AdmissionController::class, 'results']);
+$router->get('/admission/storage', [AdmissionController::class, 'storage']);
+$router->get('/admission/students', [AdmissionController::class, 'students']);
+$router->get('/admission/students/edit', [AdmissionController::class, 'editStudent']);
+$router->post('/admission/students/edit', [AdmissionController::class, 'updateStudent']);
 
 $router->dispatch($method, $path);

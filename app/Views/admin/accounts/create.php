@@ -9,9 +9,9 @@ $success = flash('success');
     <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
       <div>
         <h5 class="fw-bold mb-1">Create Account</h5>
-        <p class="text-muted mb-0">Add a new admin or guidance account.</p>
+        <p class="text-muted mb-0">Add a new administrator or admission account.</p>
       </div>
-      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admin/accounts">Back to list</a>
+      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Back to list</a>
     </div>
 
     <hr>
@@ -24,7 +24,7 @@ $success = flash('success');
       <div class="alert alert-danger"><?= e((string)$error) ?></div>
     <?php endif; ?>
 
-    <form method="post" action="<?= e(BASE_PATH) ?>/admin/accounts/create">
+    <form method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/create">
       <?= csrfField() ?>
       <div class="row g-3">
         <div class="col-12 col-md-6">
@@ -51,10 +51,10 @@ $success = flash('success');
 
         <div class="col-12 col-md-6">
           <label class="form-label">Role</label>
-          <?php $role = (string)($old['role'] ?? 'guidance'); ?>
+          <?php $role = (string)($old['role'] ?? 'admission'); ?>
           <select class="form-select" name="role" required>
-            <option value="admin" <?= $role === 'admin' ? 'selected' : '' ?>>Admin</option>
-            <option value="guidance" <?= $role === 'guidance' ? 'selected' : '' ?>>Guidance</option>
+            <option value="administrator" <?= $role === 'administrator' ? 'selected' : '' ?>>Administrator</option>
+            <option value="admission" <?= $role === 'admission' ? 'selected' : '' ?>>Admission</option>
           </select>
         </div>
 
@@ -70,11 +70,12 @@ $success = flash('success');
 
       <div class="d-flex flex-wrap gap-2 mt-4">
         <button class="btn btn-primary" type="submit">Create Account</button>
-        <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admin/accounts">Cancel</a>
+        <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/accounts">Cancel</a>
       </div>
 
       <p class="text-muted small mt-3 mb-0">
         New accounts receive a temporary password (Temp@1234) and must reset on first login.
+        System roles require administrator approval before login.
       </p>
     </form>
   </div>

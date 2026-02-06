@@ -31,15 +31,15 @@ $success = flash('success');
           </div>
 
           <button class="btn btn-primary w-100" type="submit">Login</button>
-          <div class="mt-3 small d-flex justify-content-between">
+          <div class="mt-3 small d-flex flex-column flex-sm-row gap-2">
             <a href="<?= e(BASE_PATH) ?>/forgot-password">Forgot password?</a>
           </div>
 
         </form>
 
         <div class="text-muted small mt-3">
-          Admin: encode scores & view results<br>
-          Guidance: edit weights matrix
+          Administrator: manage accounts, matrix, results, logs, reports<br>
+          Admission: encode results, view recommendations, store outputs
         </div>
       </div>
     </div>

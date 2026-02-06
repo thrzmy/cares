@@ -4,6 +4,7 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS students;
 DROP TABLE IF EXISTS weights;
 DROP TABLE IF EXISTS exam_parts;
 DROP TABLE IF EXISTS courses;
@@ -16,7 +17,13 @@ CREATE TABLE users (
     name VARCHAR(150) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'guidance') NOT NULL DEFAULT 'guidance',
+    role ENUM('administrator', 'admission') NOT NULL DEFAULT 'admission',
+    account_status ENUM('pending', 'verified', 'rejected') NOT NULL DEFAULT 'verified',
+    verified_by INT UNSIGNED NULL,
+    verified_at DATETIME NULL,
+    rejected_by INT UNSIGNED NULL,
+    rejected_at DATETIME NULL,
+    rejection_reason VARCHAR(255) NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     force_password_change TINYINT(1) NOT NULL DEFAULT 0,
     failed_login_attempts INT UNSIGNED NOT NULL DEFAULT 0,
@@ -29,8 +36,27 @@ CREATE TABLE users (
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     deleted_at DATETIME NULL,
     INDEX idx_users_role (role),
+    INDEX idx_users_status (account_status),
     INDEX idx_users_active (is_active),
     INDEX idx_users_deleted (is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE students (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_number VARCHAR(50) NULL,
+    name VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    status ENUM('pending', 'admitted', 'rejected', 'waitlisted') NOT NULL DEFAULT 'pending',
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    UNIQUE KEY uk_students_id_number (id_number),
+    CHECK (status <> 'admitted' OR id_number IS NOT NULL),
+    INDEX idx_students_status (status),
+    INDEX idx_students_deleted (is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE logs (
@@ -96,11 +122,32 @@ CREATE TABLE weights (
     INDEX idx_weights_deleted (is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO users (name, email, password, role, is_active, force_password_change)
+INSERT INTO users (
+    name,
+    email,
+    password,
+    role,
+    account_status,
+    verified_by,
+    verified_at,
+    rejected_by,
+    rejected_at,
+    rejection_reason,
+    is_active,
+    force_password_change
+)
 VALUES
-    ('admin', 'admin@cares.local', '$2y$12$CZOZU6UmUdbFvrL4oqI6aOnRW4IHyFxf7gkHRsEUefW8ofLY0Rzki', 'admin', 1, 0),
-    ('guidance', 'guidance@cares.local', '$2y$12$tpG.jbsJy08fMJX5/xozqu61sRbtAU3tfm1Othm9cjiv0j.EjoBbq', 'guidance', 1, 0);
+    ('Admin', 'admin@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'verified', 1, '2026-02-01 09:00:00', NULL, NULL, NULL, 1, 0),
+    ('Admission Personnel', 'admission@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'admission', 'verified', 1, '2026-02-01 09:10:00', NULL, NULL, NULL, 1, 0),
+    ('Juan De Vera', 'pending_admin@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'pending', NULL, NULL, NULL, NULL, NULL, 0, 1),
+    ('Maria Quinto', 'rejected_admission@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'admission', 'rejected', 1, '2026-01-31 15:30:00', 1, '2026-02-02 08:20:00', 'Incomplete requirements', 0, 1);
 
+INSERT INTO students (id_number, name, email, status, created_by)
+VALUES
+    ('S-2026-0001', 'Juan Dela Cruz', 'juan@student.local', 'pending', 1),
+    ('S-2026-0002', 'Maria Santos', 'maria@student.local', 'admitted', 1),
+    ('S-2026-0003', 'Jose Reyes', 'jose@student.local', 'waitlisted', 1),
+    ('S-2026-0004', 'Ana Garcia', 'ana@student.local', 'rejected', 1);
 INSERT INTO courses (course_code, course_name)
 VALUES
     ('BSCS', 'B.S. in Computer Science'),

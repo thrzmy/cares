@@ -27,7 +27,7 @@ final class AuthController
             return;
         }
 
-        $sql = "SELECT id, name, password, role, is_active, failed_login_attempts, locked_until
+        $sql = "SELECT id, name, password, role, account_status, is_active, failed_login_attempts, locked_until
                 FROM users
                 WHERE email = :email AND is_deleted = 0
                 LIMIT 1
@@ -53,10 +53,22 @@ final class AuthController
             return;
         }
 
+        if (($user['account_status'] ?? 'verified') !== 'verified') {
+            $status = (string)($user['account_status'] ?? 'pending');
+            $msg = $status === 'rejected'
+                ? 'Your account was rejected. Please contact the administrator.'
+                : 'Your account is pending approval. Please contact the administrator.';
+            View::render('auth/login', [
+                'title' => 'Login',
+                'error' => $msg,
+            ]);
+            return;
+        }
+
         if ((int)$user['is_active'] !== 1) {
             View::render('auth/login', [
                 'title' => 'Login',
-                'error' => 'Account is disabled. Please contact the admin.',
+                'error' => 'Account is disabled. Please contact the administrator.',
             ]);
             return;
         }
@@ -107,11 +119,20 @@ final class AuthController
 
         Logger::log((int)$user['id'], 'LOGIN', 'users', (int)$user['id'], 'User logged in');
 
-        // Role redirects (your current rule)
-        if ($user['role'] === 'admin') {
-            redirect('/admin');
+        // Role redirects
+        if ($user['role'] === 'administrator') {
+            redirect('/administrator');
         }
-        redirect('/guidance');
+        if ($user['role'] === 'admission') {
+            redirect('/admission');
+        }
+
+        $_SESSION = [];
+        session_destroy();
+        View::render('auth/login', [
+            'title' => 'Login',
+            'error' => 'Your account role is not allowed to access this system.',
+        ]);
     }
 
     public static function logout(): void
@@ -187,7 +208,7 @@ final class AuthController
             <p>Hello " . e((string)$user['name']) . ",</p>
             <p>Click the link to reset your password (expires in 30 minutes):</p>
             <p><a href=\"" . e($link) . "\">Reset Password</a></p>
-            <p>If you didn’t request this, ignore this email.</p>
+            <p>If you didn't request this, ignore this email.</p>
             ";
 
         $sent = Mailer::send((string)$user['email'], (string)$user['name'], $subject, $html);
