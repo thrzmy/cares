@@ -30,6 +30,13 @@ CARES is a lightweight PHP application for managing accounts, guidance scoring, 
 
 All application configuration values live in `.env` and are loaded at runtime. The application falls back to sensible defaults if the file is missing.
 
+## Database
+
+- Schema: `database/schema.sql`
+- Seed data: `database/seed.sql`
+
+Import the schema first, then the seed data. The schema inserts the default admin account, while the seed file inserts admission users.
+
 ## Development notes
 
 - Session data is stored in PHP sessions.
