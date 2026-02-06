@@ -481,6 +481,7 @@ final class AdminController
         );
         $studentsWithScoresSt->execute($scoresParams);
         $studentsWithScores = (int)$studentsWithScoresSt->fetchColumn();
+        $studentsWithoutScores = max(0, $studentsTotal - $studentsWithScores);
 
         $examParams = [];
         $examWhere = $addDateFilter('ses.created_at', $examParams);
@@ -557,6 +558,29 @@ final class AdminController
         $recommendationsSt->execute($recParams);
         $topRecommendations = $recommendationsSt->fetchAll();
 
+        $studentsWithRecommendationsSt = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    ses.student_id,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ses.student_id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                    ) AS rn
+                FROM student_exam_scores ses
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                WHERE ses.is_deleted = 0
+                {$recDateFilter}
+                GROUP BY ses.student_id
+            )
+            SELECT COUNT(*) FROM ranked WHERE rn = 1"
+        );
+        $studentsWithRecommendationsSt->execute($recParams);
+        $studentsWithRecommendations = (int)$studentsWithRecommendationsSt->fetchColumn();
+
         $periodLabel = 'All time';
         if ($startDate !== '' || $endDate !== '') {
             $startLabel = $startDate !== '' ? date('M j, Y', strtotime($startDate)) : 'Beginning';
@@ -572,11 +596,11 @@ final class AdminController
             'summary' => [
                 'users_total' => $usersTotal,
                 'users_active' => $usersActive,
-                'users_pending' => $statusMap['pending'] ?? 0,
                 'students_total' => $studentsTotal,
-                'students_pending' => $studentStatusMap['pending'] ?? 0,
                 'score_entries' => $scoreEntries,
                 'students_with_scores' => $studentsWithScores,
+                'students_without_scores' => $studentsWithoutScores,
+                'students_with_recommendations' => $studentsWithRecommendations,
                 'log_entries' => $logEntries,
             ],
             'userRoleCounts' => $userRoleCounts,

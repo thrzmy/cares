@@ -72,7 +72,6 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
         <div class="text-muted small">Total Users</div>
         <div class="h4 fw-bold mb-0"><?= e((string)($summary['users_total'] ?? 0)) ?></div>
         <div class="text-muted small mt-2">Active: <?= e((string)($summary['users_active'] ?? 0)) ?></div>
-        <div class="text-muted small">Pending: <?= e((string)($summary['users_pending'] ?? 0)) ?></div>
       </div>
     </div>
   </div>
@@ -81,7 +80,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
       <div class="card-body">
         <div class="text-muted small">Total Students</div>
         <div class="h4 fw-bold mb-0"><?= e((string)($summary['students_total'] ?? 0)) ?></div>
-        <div class="text-muted small mt-2">Pending: <?= e((string)($summary['students_pending'] ?? 0)) ?></div>
+        <div class="text-muted small mt-2">Students w/ Recommendation: <?= e((string)($summary['students_with_recommendations'] ?? 0)) ?></div>
       </div>
     </div>
   </div>
@@ -90,7 +89,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
       <div class="card-body">
         <div class="text-muted small">Score Entries</div>
         <div class="h4 fw-bold mb-0"><?= e((string)($summary['score_entries'] ?? 0)) ?></div>
-        <div class="text-muted small mt-2">Students With Scores: <?= e((string)($summary['students_with_scores'] ?? 0)) ?></div>
+        <div class="text-muted small mt-2">Students w/o Scores: <?= e((string)($summary['students_without_scores'] ?? 0)) ?></div>
       </div>
     </div>
   </div>
@@ -112,33 +111,6 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
         <h6 class="fw-bold mb-2">Account Breakdown</h6>
         <div class="row g-3">
           <div class="col-12 col-md-6">
-            <div class="text-muted small mb-2">Roles</div>
-            <div class="table-responsive">
-              <table class="table table-sm align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>Role</th>
-                    <th class="text-end">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <?php if (!empty($userRoleCounts)): ?>
-                    <?php foreach ($userRoleCounts as $row): ?>
-                      <tr>
-                        <td><?= e(ucfirst((string)$row['role'])) ?></td>
-                        <td class="text-end"><?= e((string)$row['total']) ?></td>
-                      </tr>
-                    <?php endforeach; ?>
-                  <?php else: ?>
-                    <tr>
-                      <td colspan="2" class="text-muted small">No data available.</td>
-                    </tr>
-                  <?php endif; ?>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div class="col-12 col-md-6">
             <div class="text-muted small mb-2">Account Status</div>
             <div class="table-responsive">
               <table class="table table-sm align-middle mb-0">
@@ -153,6 +125,33 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
                     <?php foreach ($userStatusCounts as $row): ?>
                       <tr>
                         <td><?= e(ucfirst((string)$row['account_status'])) ?></td>
+                        <td class="text-end"><?= e((string)$row['total']) ?></td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php else: ?>
+                    <tr>
+                      <td colspan="2" class="text-muted small">No data available.</td>
+                    </tr>
+                  <?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="text-muted small mb-2">Roles</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Role</th>
+                    <th class="text-end">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php if (!empty($userRoleCounts)): ?>
+                    <?php foreach ($userRoleCounts as $row): ?>
+                      <tr>
+                        <td><?= e(ucfirst((string)$row['role'])) ?></td>
                         <td class="text-end"><?= e((string)$row['total']) ?></td>
                       </tr>
                     <?php endforeach; ?>
