@@ -25,22 +25,6 @@ declare(strict_types=1);
       </div>
     </a>
   </div>
-  
-  <div class="col-12 col-md-6">
-    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/admission/reports">
-      <div class="d-flex align-items-start gap-3">
-        <div class="tile-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z"/>
-          </svg>
-        </div>
-        <div>
-          <h6 class="fw-bold mb-1 tile-title">System Reports</h6>
-          <p class="text-muted small mb-2">Generate student-only summaries by period.</p>
-        </div>
-      </div>
-    </a>
-  </div>
 
   <div class="col-12 col-md-6">
     <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/admission/encode">
@@ -69,6 +53,22 @@ declare(strict_types=1);
         <div>
           <h6 class="fw-bold mb-1 tile-title">Results & Recommendations</h6>
           <p class="text-muted small mb-2">Review encoded exam scores and course recommendations.</p>
+        </div>
+      </div>
+    </a>
+  </div>
+  
+  <div class="col-12 col-md-6">
+    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/admission/reports">
+      <div class="d-flex align-items-start gap-3">
+        <div class="tile-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z"/>
+          </svg>
+        </div>
+        <div>
+          <h6 class="fw-bold mb-1 tile-title">System Reports</h6>
+          <p class="text-muted small mb-2">Generate student-only summaries by period.</p>
         </div>
       </div>
     </a>
