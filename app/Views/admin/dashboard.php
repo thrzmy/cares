@@ -45,7 +45,7 @@ declare(strict_types=1);
   <div class="col-12 col-md-6">
     <div class="admin-tile">
       <h6 class="fw-bold mb-1 tile-title">System Reports</h6>
-      <p class="text-muted small mb-2">Compile system usage, exam, and scan reports across departments or periods.</p>
+      <p class="text-muted small mb-2">Compile system usage, exam, and result reports across departments or periods.</p>
       <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/reports">Open</a>
     </div>
   </div>
