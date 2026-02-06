@@ -11,7 +11,7 @@ $error = flash('error');
   </div>
   <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/students/create">Add Student</a>
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Back to Account Management</a>
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
   </div>
 </div>
 

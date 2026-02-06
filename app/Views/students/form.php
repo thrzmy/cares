@@ -5,7 +5,7 @@ $student = $student ?? [];
 ?>
 <div class="card shadow-sm">
   <div class="card-body">
-    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+      <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
       <div>
         <h5 class="fw-bold mb-1"><?= e((string)($title ?? 'Student')) ?></h5>
         <p class="text-muted mb-0">ID number is required only when status is set to admitted.</p>

@@ -9,6 +9,7 @@ $error = flash('error');
     <h4 class="fw-bold mb-1">Students</h4>
     <p class="text-muted mb-0">View student details and admission status.</p>
   </div>
+  <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission">Back to Dashboard</a>
 </div>
 
 <?php if (!empty($success)): ?>

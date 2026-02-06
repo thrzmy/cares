@@ -11,7 +11,7 @@ $success = flash('success');
         <h5 class="fw-bold mb-1">Edit Account</h5>
         <p class="text-muted mb-0">Update account details and access.</p>
       </div>
-      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Back to list</a>
+      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts">Back</a>
     </div>
 
     <hr>

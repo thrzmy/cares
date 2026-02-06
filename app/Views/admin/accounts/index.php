@@ -9,7 +9,10 @@ $error = flash('error');
     <h4 class="fw-bold mb-1">Accounts</h4>
     <p class="text-muted mb-0">Manage system users.</p>
   </div>
-  <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts/create">Create Account</a>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts/create">Create Account</a>
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
+  </div>
 </div>
 
 <?php if (!empty($success)): ?>
@@ -21,7 +24,7 @@ $error = flash('error');
 <?php endif; ?>
 
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/accounts">
-  <div class="col-12 col-md-6">
+  <div class="col-12 col-md-5">
     <label class="form-label small">Search</label>
     <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name or email">
   </div>
@@ -33,7 +36,7 @@ $error = flash('error');
       <option value="admission" <?= ($roleFilter ?? '') === 'admission' ? 'selected' : '' ?>>Admission</option>
     </select>
   </div>
-  <div class="col-12 col-md-3">
+  <div class="col-12 col-md-2">
     <label class="form-label small">Status</label>
     <select class="form-select" name="status">
       <option value="">All statuses</option>
