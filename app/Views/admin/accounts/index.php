@@ -88,11 +88,15 @@ $error = flash('error');
               Edit Account
             </a>
           <?php else: ?>
-            <form class="mt-3" method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/verify">
-              <?= csrfField() ?>
-              <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-              <button class="btn btn-success btn-sm w-100" type="submit">Re-Verify Account</button>
-            </form>
+            <button
+              class="btn btn-success btn-sm w-100 mt-3"
+              type="button"
+              data-bs-toggle="modal"
+              data-bs-target="#reverifyModal"
+              data-id="<?= (int)$u['id'] ?>"
+              data-name="<?= e($u['name']) ?>">
+              Re-Verify Account
+            </button>
           <?php endif; ?>
 
           <?php if ($isSystemRole && $status === 'pending'): ?>
@@ -105,12 +109,15 @@ $error = flash('error');
               data-name="<?= e($u['name']) ?>">
               Verify Account
             </button>
-            <form class="mt-2" method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/reject">
-              <?= csrfField() ?>
-              <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-              <input class="form-control form-control-sm mb-2" type="text" name="reason" placeholder="Rejection reason (optional)">
-              <button class="btn btn-outline-danger btn-sm w-100" type="submit">Reject Account</button>
-            </form>
+            <button
+              class="btn btn-outline-danger btn-sm w-100 mt-2"
+              type="button"
+              data-bs-toggle="modal"
+              data-bs-target="#rejectModal"
+              data-id="<?= (int)$u['id'] ?>"
+              data-name="<?= e($u['name']) ?>">
+              Reject Account
+            </button>
           <?php endif; ?>
         </div>
       </div>
@@ -189,12 +196,15 @@ $error = flash('error');
                       data-name="<?= e($u['name']) ?>">
                       Verify
                     </button>
-                    <form method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/reject">
-                      <?= csrfField() ?>
-                      <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-                      <input class="form-control form-control-sm mb-1" type="text" name="reason" placeholder="Reason (optional)">
-                      <button class="btn btn-outline-danger btn-sm" type="submit">Reject</button>
-                    </form>
+                    <button
+                      class="btn btn-outline-danger btn-sm"
+                      type="button"
+                      data-bs-toggle="modal"
+                      data-bs-target="#rejectModal"
+                      data-id="<?= (int)$u['id'] ?>"
+                      data-name="<?= e($u['name']) ?>">
+                      Reject
+                    </button>
                   <?php endif; ?>
                 </div>
               </td>
@@ -256,6 +266,30 @@ $error = flash('error');
   </div>
 </div>
 
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="<?= e(BASE_PATH) ?>/administrator/accounts/reject">
+        <?= csrfField() ?>
+        <input type="hidden" name="id" id="rejectAccountId">
+        <div class="modal-header">
+          <h5 class="modal-title">Reject Account</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Reject <strong id="rejectAccountName">this account</strong>?</p>
+          <label class="form-label small">Reason (optional)</label>
+          <input class="form-control" type="text" name="reason" placeholder="Reason for rejection">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-outline-danger">Confirm Reject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
   const verifyModal = document.getElementById('verifyModal');
   if (verifyModal) {
@@ -278,6 +312,19 @@ $error = flash('error');
       const name = button.getAttribute('data-name');
       const idInput = reverifyModal.querySelector('#reverifyAccountId');
       const nameLabel = reverifyModal.querySelector('#reverifyAccountName');
+      idInput.value = id || '';
+      nameLabel.textContent = name || 'this account';
+    });
+  }
+
+  const rejectModal = document.getElementById('rejectModal');
+  if (rejectModal) {
+    rejectModal.addEventListener('show.bs.modal', (event) => {
+      const button = event.relatedTarget;
+      const id = button.getAttribute('data-id');
+      const name = button.getAttribute('data-name');
+      const idInput = rejectModal.querySelector('#rejectAccountId');
+      const nameLabel = rejectModal.querySelector('#rejectAccountName');
       idInput.value = id || '';
       nameLabel.textContent = name || 'this account';
     });
