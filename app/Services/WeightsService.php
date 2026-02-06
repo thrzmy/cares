@@ -21,6 +21,28 @@ final class WeightsService
         return Database::pdo()->query($sql)->fetchAll();
     }
 
+    public static function getCoursesCount(): int
+    {
+        $sql = "SELECT COUNT(*)
+                FROM courses
+                WHERE is_deleted = 0";
+        return (int)Database::pdo()->query($sql)->fetchColumn();
+    }
+
+    public static function getCoursesPage(int $limit, int $offset): array
+    {
+        $sql = "SELECT id, course_code, course_name
+                FROM courses
+                WHERE is_deleted = 0
+                ORDER BY course_code ASC
+                LIMIT :limit OFFSET :offset";
+        $st = Database::pdo()->prepare($sql);
+        $st->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
+        return $st->fetchAll();
+    }
+
     /**
      * Returns weights mapped as [course_id][exam_part_id] => weight
      */

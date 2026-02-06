@@ -5,10 +5,13 @@ declare(strict_types=1); ?>
     <div class="col-12 col-md-6 col-lg-5">
         <div class="card shadow-sm auth-card">
             <div class="card-body p-4">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <img class="auth-logo" src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
-                    <div class="text-uppercase small text-muted">Academic Portal</div>
-                </div>
+        <div class="d-flex align-items-center justify-content-between mb-2 auth-brand">
+          <div class="d-flex align-items-center gap-2">
+            <img class="auth-logo" src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
+            <div class="text-uppercase small text-muted">Academic Portal</div>
+          </div>
+          <img class="auth-logo auth-logo--sub" src="<?= e(BASE_PATH) ?>/assets/img/scs_logo.png" alt="School of Computer Science logo">
+        </div>
                 <h5 class="fw-bold mb-1 auth-title">Forgot Password</h5>
                 <p class="text-muted mb-3">We'll send a reset link to your email.</p>
 
@@ -37,3 +40,7 @@ declare(strict_types=1); ?>
         </div>
     </div>
 </div>
+
+
+
+

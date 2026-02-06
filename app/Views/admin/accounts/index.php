@@ -224,6 +224,11 @@ $error = flash('error');
   </div>
 <?php endif; ?>
 
+<?php
+$pagination = $pagination ?? null;
+require __DIR__ . '/../../partials/pagination.php';
+?>
+
 <div class="modal fade" id="verifyModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">

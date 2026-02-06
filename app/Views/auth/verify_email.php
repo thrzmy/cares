@@ -7,9 +7,12 @@ $success = flash('success');
   <div class="col-12 col-md-6 col-lg-5">
     <div class="card shadow-sm auth-card">
       <div class="card-body p-4">
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <img class="auth-logo" src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
-          <div class="text-uppercase small text-muted">Academic Portal</div>
+        <div class="d-flex align-items-center justify-content-between mb-2 auth-brand">
+          <div class="d-flex align-items-center gap-2">
+            <img class="auth-logo" src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
+            <div class="text-uppercase small text-muted">Academic Portal</div>
+          </div>
+          <img class="auth-logo auth-logo--sub" src="<?= e(BASE_PATH) ?>/assets/img/scs_logo.png" alt="School of Computer Science logo">
         </div>
         <h4 class="fw-bold mb-1 auth-title">Verify Your Email</h4>
         <p class="text-muted mb-4">Enter the code sent to your email.</p>
@@ -61,3 +64,7 @@ $success = flash('success');
     </div>
   </div>
 </div>
+
+
+
+

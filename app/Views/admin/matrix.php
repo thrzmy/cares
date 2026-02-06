@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 $success = flash('success');
+$pagination = $pagination ?? null;
+$currentPage = (int)($pagination['page'] ?? 1);
 ?>
 
 <div class="page-header mb-3">
@@ -35,6 +37,7 @@ $success = flash('success');
             <div class="d-block d-md-none">
                 <form method="post" action="<?= e(BASE_PATH) ?>/administrator/matrix">
                     <?= csrfField() ?>
+                    <input type="hidden" name="page" value="<?= e((string)$currentPage) ?>">
                     <?php foreach ($courses as $c): ?>
                         <?php $courseId = (int)$c['id']; ?>
                         <div class="card shadow-sm mb-3">
@@ -71,7 +74,8 @@ $success = flash('success');
             <div class="d-none d-md-block">
                 <form method="post" action="<?= e(BASE_PATH) ?>/administrator/matrix">
                     <?= csrfField() ?>
-                    <div class="table-responsive">
+                    <input type="hidden" name="page" value="<?= e((string)$currentPage) ?>">
+                    <div class="table-responsive mb-3">
                         <table class="table table-bordered align-middle">
                             <thead class="table-light">
                                 <tr>
@@ -121,3 +125,7 @@ $success = flash('success');
         <?php endif; ?>
     </div>
 </div>
+
+<?php
+require __DIR__ . '/../partials/pagination.php';
+?>

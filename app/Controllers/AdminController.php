@@ -15,6 +15,8 @@ final class AdminController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 5;
 
         $params = [];
         $where = "WHERE s.is_deleted = 0
@@ -35,12 +37,30 @@ final class AdminController
             $params[':status'] = $status;
         }
 
+        $countSql = "SELECT COUNT(*)
+                     FROM students s
+                     $where";
+        $countSt = Database::pdo()->prepare($countSql);
+        $countSt->execute($params);
+        $total = (int)$countSt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
         $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
                 FROM students s
                 $where
-                ORDER BY s.created_at DESC";
+                ORDER BY s.created_at DESC
+                LIMIT :limit OFFSET :offset";
         $st = Database::pdo()->prepare($sql);
-        $st->execute($params);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value);
+        }
+        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
         $students = $st->fetchAll();
 
         $recommendations = [];
@@ -103,6 +123,19 @@ final class AdminController
             'statusFilter' => $status,
             'success' => flash('success'),
             'error' => flash('error'),
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/administrator/scores',
+                'query' => [
+                    'q' => $q,
+                    'status' => $status,
+                ],
+            ],
         ]);
     }
 
@@ -142,7 +175,16 @@ final class AdminController
     {
         RoleMiddleware::requireRole('administrator');
 
-        $courses = WeightsService::getCourses();
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 5;
+        $total = WeightsService::getCoursesCount();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        $courses = WeightsService::getCoursesPage($perPage, $offset);
         $parts = WeightsService::getExamParts();
         $weightsMap = WeightsService::getWeightsMap();
 
@@ -153,6 +195,16 @@ final class AdminController
             'weightsMap' => $weightsMap,
             'success' => null,
             'error' => null,
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/administrator/matrix',
+                'query' => [],
+            ],
         ]);
     }
 
@@ -167,15 +219,23 @@ final class AdminController
         }
 
         $matrix = $_POST['weights'] ?? [];
+        $page = max(1, (int)($_POST['page'] ?? 1));
 
         try {
             WeightsService::saveMatrix($matrix, $userId);
             Logger::log($userId, 'UPDATED_WEIGHTS', 'weights', null, 'Updated weights matrix');
 
             flash('success', 'Matrix saved successfully.');
-            redirect('/administrator/matrix');
+            redirect('/administrator/matrix?page=' . $page);
         } catch (Throwable $e) {
-            $courses = WeightsService::getCourses();
+            $perPage = 5;
+            $total = WeightsService::getCoursesCount();
+            $pages = max(1, (int)ceil($total / $perPage));
+            if ($page > $pages) {
+                $page = $pages;
+            }
+            $offset = ($page - 1) * $perPage;
+            $courses = WeightsService::getCoursesPage($perPage, $offset);
             $parts = WeightsService::getExamParts();
             $weightsMap = WeightsService::getWeightsMap();
 
@@ -186,6 +246,16 @@ final class AdminController
                 'weightsMap' => $weightsMap,
                 'success' => null,
                 'error' => APP_DEBUG ? $e->getMessage() : 'Failed to save matrix.',
+                'pagination' => [
+                    'page' => $page,
+                    'pages' => $pages,
+                    'total' => $total,
+                    'perPage' => $perPage,
+                    'from' => $total > 0 ? $offset + 1 : 0,
+                    'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                    'basePath' => '/administrator/matrix',
+                    'query' => [],
+                ],
             ]);
         }
     }

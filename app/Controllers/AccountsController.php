@@ -8,6 +8,8 @@ final class AccountsController
         $q = trim((string)($_GET['q'] ?? ''));
         $role = trim((string)($_GET['role'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 5;
 
         $where = "WHERE u.is_deleted = 0";
         $params = [];
@@ -29,6 +31,18 @@ final class AccountsController
             $params[':status'] = $status;
         }
 
+        $countSql = "SELECT COUNT(*)
+                     FROM users u
+                     $where";
+        $countSt = Database::pdo()->prepare($countSql);
+        $countSt->execute($params);
+        $total = (int)$countSt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
         $sql = "SELECT u.id,
                        u.name,
                        u.email,
@@ -45,9 +59,15 @@ final class AccountsController
                 LEFT JOIN users v ON v.id = u.verified_by
                 LEFT JOIN users r ON r.id = u.rejected_by
                 $where
-                ORDER BY u.created_at DESC";
+                ORDER BY u.created_at DESC
+                LIMIT :limit OFFSET :offset";
         $st = Database::pdo()->prepare($sql);
-        $st->execute($params);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value);
+        }
+        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
         $users = $st->fetchAll();
 
         View::render('admin/accounts/index', [
@@ -56,6 +76,20 @@ final class AccountsController
             'q' => $q,
             'roleFilter' => $role,
             'statusFilter' => $status,
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/administrator/accounts',
+                'query' => [
+                    'q' => $q,
+                    'role' => $role,
+                    'status' => $status,
+                ],
+            ],
         ]);
     }
 
@@ -63,6 +97,8 @@ final class AccountsController
     {
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 5;
 
         $params = [];
         $where = "WHERE is_deleted = 0";
@@ -75,12 +111,30 @@ final class AccountsController
             $params[':status'] = $status;
         }
 
+        $countSql = "SELECT COUNT(*)
+                     FROM students
+                     $where";
+        $countSt = Database::pdo()->prepare($countSql);
+        $countSt->execute($params);
+        $total = (int)$countSt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
         $sql = "SELECT id, id_number, name, email, status, created_at
                 FROM students
                 $where
-                ORDER BY created_at DESC";
+                ORDER BY created_at DESC
+                LIMIT :limit OFFSET :offset";
         $st = Database::pdo()->prepare($sql);
-        $st->execute($params);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value);
+        }
+        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
         $students = $st->fetchAll();
 
         View::render('admin/students', [
@@ -88,6 +142,19 @@ final class AccountsController
             'students' => $students,
             'q' => $q,
             'statusFilter' => $status,
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/administrator/students',
+                'query' => [
+                    'q' => $q,
+                    'status' => $status,
+                ],
+            ],
         ]);
     }
 

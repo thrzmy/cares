@@ -141,11 +141,24 @@ a:hover {
   border-top: 4px solid var(--cares-gold);
 }
 
+.auth-brand {
+  gap: 0.75rem;
+}
+
+.auth-brand > img {
+  flex-shrink: 0;
+}
+
 .auth-logo {
   width: 44px;
   height: 44px;
   object-fit: contain;
   filter: drop-shadow(0 6px 12px rgba(51, 18, 5, 0.22));
+}
+
+.auth-logo--sub {
+  width: 36px;
+  height: 36px;
 }
 
 .card-logo {
@@ -254,6 +267,7 @@ a:hover {
   --bs-pagination-active-bg: var(--cares-maroon);
   --bs-pagination-active-border-color: var(--cares-maroon);
   --bs-pagination-border-color: var(--cares-border);
+  gap: 0.35rem;
 }
 
 .page-link {

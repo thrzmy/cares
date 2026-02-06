@@ -102,3 +102,8 @@ $error = flash('error');
     <div class="card-body text-muted">No students found.</div>
   </div>
 <?php endif; ?>
+
+<?php
+$pagination = $pagination ?? null;
+require __DIR__ . '/../partials/pagination.php';
+?>
