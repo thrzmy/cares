@@ -73,7 +73,7 @@ $router->get('/admin/scores', [AdminController::class, 'scores']);
 $router->get('/admin/results', [AdminController::class, 'results']);
 
 $router->get('/guidance', function () {
-    RoleMiddleware::requireRole('guidance', 'admin');
+    RoleMiddleware::requireRole('guidance');
     GuidanceController::dashboard();
 });
 

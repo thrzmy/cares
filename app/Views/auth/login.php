@@ -19,6 +19,7 @@ $success = flash('success');
         <?php endif; ?>
 
         <form method="post" action="<?= e(BASE_PATH) ?>/login">
+          <?= csrfField() ?>
           <div class="mb-3">
             <label class="form-label">Email</label>
             <input class="form-control" type="email" name="email" required autocomplete="username">

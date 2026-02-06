@@ -14,6 +14,8 @@ final class AuthController
 
     public static function login(): void
     {
+        verifyCsrfOrFail();
+        
         $email = trim((string)($_POST['email'] ?? ''));
         $password = (string)($_POST['password'] ?? '');
 
