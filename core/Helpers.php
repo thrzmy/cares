@@ -71,6 +71,17 @@ function isActive(string $path): string
     return ($current === $path || str_starts_with($current, $path . '/')) ? 'active' : '';
 }
 
+function studentStatusBadgeClass(string $status): string
+{
+    return match (strtolower($status)) {
+        'admitted' => 'text-bg-success',
+        'rejected' => 'text-bg-danger',
+        'waitlisted' => 'text-bg-info',
+        'pending' => 'text-bg-warning',
+        default => 'text-bg-secondary',
+    };
+}
+
 function appNow(): DateTimeImmutable
 {
     return new DateTimeImmutable('now', new DateTimeZone(APP_TIMEZONE));

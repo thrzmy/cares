@@ -25,17 +25,17 @@ declare(strict_types=1);
 
       <div class="col-12 col-md-6">
         <div class="border rounded p-3 bg-white">
-          <h6 class="fw-bold mb-1">Result Storage</h6>
-          <p class="text-muted small mb-2">Store encoded exam results and keep records organized.</p>
+          <h6 class="fw-bold mb-1">Results & Recommendations</h6>
+          <p class="text-muted small mb-2">View encoded scores and auto-generated course recommendations.</p>
           <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores">Open</a>
         </div>
       </div>
 
       <div class="col-12 col-md-6">
         <div class="border rounded p-3 bg-white">
-          <h6 class="fw-bold mb-1">Course Recommendation</h6>
-          <p class="text-muted small mb-2">View course recommendations based on test results.</p>
-          <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/results">Open</a>
+          <h6 class="fw-bold mb-1">Matrix Configuration</h6>
+          <p class="text-muted small mb-2">Manage the course weight matrix for recommendations.</p>
+          <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/matrix">Open</a>
         </div>
       </div>
 

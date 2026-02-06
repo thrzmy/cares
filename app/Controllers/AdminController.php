@@ -12,13 +12,130 @@ final class AdminController
     public static function scores(): void
     {
         RoleMiddleware::requireRole('administrator');
-        View::render('admin/scores', ['title' => 'Encode Test Results']);
+
+        $q = trim((string)($_GET['q'] ?? ''));
+        $status = trim((string)($_GET['status'] ?? ''));
+
+        $params = [];
+        $where = "WHERE s.is_deleted = 0
+                  AND EXISTS (
+                      SELECT 1
+                      FROM student_exam_scores ses
+                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
+                  )";
+        if ($q !== '') {
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $like = '%' . $q . '%';
+            $params[':q_name'] = $like;
+            $params[':q_email'] = $like;
+            $params[':q_id'] = $like;
+        }
+        if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+            $where .= " AND s.status = :status";
+            $params[':status'] = $status;
+        }
+
+        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+                FROM students s
+                $where
+                ORDER BY s.created_at DESC";
+        $st = Database::pdo()->prepare($sql);
+        $st->execute($params);
+        $students = $st->fetchAll();
+
+        $recommendations = [];
+        if (!empty($students)) {
+            $studentIds = array_map(
+                static fn($row) => (int)$row['id'],
+                $students
+            );
+            $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+
+            $recSql = "WITH ranked AS (
+                          SELECT
+                              ses.student_id,
+                              c.course_code,
+                              c.course_name,
+                              SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                              ROW_NUMBER() OVER (
+                                  PARTITION BY ses.student_id
+                                  ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                              ) AS rn
+                          FROM student_exam_scores ses
+                          INNER JOIN exam_parts ep
+                              ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                          INNER JOIN weights w
+                              ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                          INNER JOIN courses c
+                              ON c.id = w.course_id AND c.is_deleted = 0
+                          WHERE ses.is_deleted = 0
+                            AND ses.student_id IN ($placeholders)
+                          GROUP BY ses.student_id, c.id
+                        )
+                        SELECT student_id, course_code, course_name, total_score, rn
+                        FROM ranked
+                        WHERE rn <= 3
+                        ORDER BY student_id, rn";
+
+            $recSt = Database::pdo()->prepare($recSql);
+            $recSt->execute($studentIds);
+            $recRows = $recSt->fetchAll();
+
+            foreach ($recRows as $row) {
+                $sid = (int)$row['student_id'];
+                if (!isset($recommendations[$sid])) {
+                    $recommendations[$sid] = [];
+                }
+                $recommendations[$sid][] = [
+                    'course_code' => (string)$row['course_code'],
+                    'course_name' => (string)$row['course_name'],
+                    'total_score' => (float)$row['total_score'],
+                    'rank' => (int)$row['rn'],
+                ];
+            }
+        }
+
+        View::render('admin/scores', [
+            'title' => 'Results & Recommendations',
+            'students' => $students,
+            'recommendations' => $recommendations,
+            'q' => $q,
+            'statusFilter' => $status,
+            'success' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public static function viewScores(): void
+    {
+        RoleMiddleware::requireRole('administrator');
+
+        $id = (int)($_GET['id'] ?? 0);
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $id]);
+        $student = $st->fetch();
+
+        if (!$student) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Not Found']);
+            return;
+        }
+
+        $parts = WeightsService::getExamParts();
+        $scoresMap = ScoresService::getStudentScoresMap($id);
+
+        View::render('admin/view_scores', [
+            'title' => 'View Scores',
+            'student' => $student,
+            'parts' => $parts,
+            'scoresMap' => $scoresMap,
+        ]);
     }
 
     public static function results(): void
     {
         RoleMiddleware::requireRole('administrator');
-        View::render('admin/results', ['title' => 'Course Recommendations']);
+        self::scores();
     }
 
     public static function matrix(): void

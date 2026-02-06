@@ -30,6 +30,7 @@ foreach ([
   'PasswordService',
   'TokenService',
   'WeightsService',
+  'ScoresService',
 ] as $svc) {
   require_once __DIR__ . "/../app/Services/{$svc}.php";
 }

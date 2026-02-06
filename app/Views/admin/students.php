@@ -54,8 +54,8 @@ $error = flash('error');
               <div class="text-muted small"><?= e($s['email']) ?></div>
               <div class="text-muted small">ID: <?= e((string)($s['id_number'] ?? 'Not set')) ?></div>
             </div>
-            <span class="badge text-bg-light border text-uppercase">
-              <?= e((string)($s['status'] ?? 'pending')) ?>
+            <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
+              <?= e(ucfirst((string)($s['status'] ?? 'pending'))) ?>
             </span>
           </div>
           <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/administrator/students/edit?id=<?= (int)$s['id'] ?>">Edit Student</a>
@@ -83,8 +83,8 @@ $error = flash('error');
               <td><?= e((string)($s['id_number'] ?? 'Not set')) ?></td>
               <td><?= e($s['email']) ?></td>
               <td>
-                <span class="badge text-bg-light border text-uppercase">
-                  <?= e((string)($s['status'] ?? 'pending')) ?>
+                <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
+                  <?= e(ucfirst((string)($s['status'] ?? 'pending'))) ?>
                 </span>
               </td>
               <td class="text-end">

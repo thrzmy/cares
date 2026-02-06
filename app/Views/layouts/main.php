@@ -53,10 +53,10 @@ declare(strict_types=1);
                                             <a class="dropdown-item <?= e(isActive('/administrator/students')) ?>" href="<?= e(BASE_PATH) ?>/administrator/students">Student Management</a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item <?= e(isActive('/administrator/scores')) ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">Result Storage</a>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/scores') ?: isActive('/administrator/results')) ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">Results & Recommendations</a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item <?= e(isActive('/administrator/results')) ?>" href="<?= e(BASE_PATH) ?>/administrator/results">Course Recommendation</a>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/matrix')) ?>" href="<?= e(BASE_PATH) ?>/administrator/matrix">Matrix Configuration</a>
                                         </li>
                                         <li>
                                             <a class="dropdown-item <?= e(isActive('/administrator/reports')) ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">System Reports</a>
@@ -76,6 +76,9 @@ declare(strict_types=1);
                                         </li>
                                         <li>
                                             <a class="dropdown-item <?= e(isActive('/admission/students')) ?>" href="<?= e(BASE_PATH) ?>/admission/students">Student Management</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/admission/encode')) ?>" href="<?= e(BASE_PATH) ?>/admission/encode">Encode Test Results</a>
                                         </li>
                                         <li>
                                             <a class="dropdown-item <?= e(isActive('/admission/storage')) ?>" href="<?= e(BASE_PATH) ?>/admission/storage">Result Storage</a>

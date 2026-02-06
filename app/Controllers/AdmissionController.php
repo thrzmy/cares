@@ -13,7 +13,126 @@ final class AdmissionController
     public static function encode(): void
     {
         RoleMiddleware::requireRole('admission');
-        View::render('admission/encode', ['title' => 'Encode Test Results']);
+
+        $q = trim((string)($_GET['q'] ?? ''));
+
+        $params = [];
+        $where = "WHERE s.is_deleted = 0
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM student_exam_scores ses
+                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
+                  )
+                  AND s.status = 'pending'";
+        if ($q !== '') {
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $like = '%' . $q . '%';
+            $params[':q_name'] = $like;
+            $params[':q_email'] = $like;
+            $params[':q_id'] = $like;
+        }
+
+        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+                FROM students s
+                $where
+                ORDER BY s.created_at DESC";
+        $st = Database::pdo()->prepare($sql);
+        $st->execute($params);
+        $students = $st->fetchAll();
+
+        View::render('admission/encode', [
+            'title' => 'Encode Test Results',
+            'students' => $students,
+            'q' => $q,
+            'success' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public static function editScores(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $id = (int)($_GET['id'] ?? 0);
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $id]);
+        $student = $st->fetch();
+
+        if (!$student) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Not Found']);
+            return;
+        }
+
+        if (ScoresService::hasScores($id)) {
+            flash('error', 'May scores na. Please edit in Result Storage.');
+            redirect('/admission/encode');
+        }
+
+        $parts = WeightsService::getExamParts();
+        $scoresMap = ScoresService::getStudentScoresMap($id);
+
+        View::render('admission/encode_form', [
+            'title' => 'Encode Test Results',
+            'student' => $student,
+            'parts' => $parts,
+            'scoresMap' => $scoresMap,
+            'error' => null,
+            'success' => flash('success'),
+            'mode' => 'encode',
+        ]);
+    }
+
+    public static function saveScores(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('admission');
+
+        $id = (int)($_POST['id'] ?? 0);
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $id]);
+        $student = $st->fetch();
+
+        if (!$student) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Not Found']);
+            return;
+        }
+
+        $mode = (string)($_POST['mode'] ?? 'encode');
+        if ($mode !== 'edit' && ScoresService::hasScores($id)) {
+            flash('error', 'May scores na. Please edit in Result Storage.');
+            redirect('/admission/encode');
+        }
+
+        $scores = $_POST['scores'] ?? [];
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        try {
+            ScoresService::saveStudentScores($id, $scores, $userId);
+            Logger::log($userId, 'ENCODE_SCORES', 'students', $id, 'Admission encoded exam part scores');
+            flash('success', 'Scores saved successfully.');
+            if ($mode === 'edit') {
+                redirect('/admission/storage/edit?id=' . $id);
+            }
+            redirect('/admission/encode/edit?id=' . $id);
+        } catch (Throwable $e) {
+            $parts = WeightsService::getExamParts();
+            $scoresMap = ScoresService::getStudentScoresMap($id);
+
+            View::render('admission/encode_form', [
+                'title' => 'Encode Test Results',
+                'student' => $student,
+                'parts' => $parts,
+                'scoresMap' => $scoresMap,
+                'error' => APP_DEBUG ? $e->getMessage() : 'Failed to save scores.',
+                'success' => null,
+                'mode' => $mode,
+            ]);
+        }
     }
 
     public static function results(): void
@@ -25,7 +144,74 @@ final class AdmissionController
     public static function storage(): void
     {
         RoleMiddleware::requireRole('admission');
-        View::render('admission/storage', ['title' => 'Result Storage']);
+
+        $q = trim((string)($_GET['q'] ?? ''));
+        $status = trim((string)($_GET['status'] ?? ''));
+
+        $params = [];
+        $where = "WHERE s.is_deleted = 0
+                  AND EXISTS (
+                      SELECT 1
+                      FROM student_exam_scores ses
+                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
+                  )";
+        if ($q !== '') {
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $like = '%' . $q . '%';
+            $params[':q_name'] = $like;
+            $params[':q_email'] = $like;
+            $params[':q_id'] = $like;
+        }
+        if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+            $where .= " AND s.status = :status";
+            $params[':status'] = $status;
+        }
+
+        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+                FROM students s
+                $where
+                ORDER BY s.created_at DESC";
+        $st = Database::pdo()->prepare($sql);
+        $st->execute($params);
+        $students = $st->fetchAll();
+
+        View::render('admission/storage', [
+            'title' => 'Result Storage',
+            'students' => $students,
+            'q' => $q,
+            'statusFilter' => $status,
+            'success' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public static function editStoredScores(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $id = (int)($_GET['id'] ?? 0);
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $id]);
+        $student = $st->fetch();
+
+        if (!$student) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Not Found']);
+            return;
+        }
+
+        $parts = WeightsService::getExamParts();
+        $scoresMap = ScoresService::getStudentScoresMap($id);
+
+        View::render('admission/encode_form', [
+            'title' => 'Edit Scores',
+            'student' => $student,
+            'parts' => $parts,
+            'scoresMap' => $scoresMap,
+            'error' => null,
+            'success' => flash('success'),
+            'mode' => 'edit',
+        ]);
     }
 
     public static function students(): void
@@ -38,8 +224,11 @@ final class AdmissionController
         $params = [];
         $where = "WHERE is_deleted = 0";
         if ($q !== '') {
-            $where .= " AND (name LIKE :q OR email LIKE :q OR id_number LIKE :q)";
-            $params[':q'] = '%' . $q . '%';
+            $where .= " AND (name LIKE :q_name OR email LIKE :q_email OR id_number LIKE :q_id)";
+            $like = '%' . $q . '%';
+            $params[':q_name'] = $like;
+            $params[':q_email'] = $like;
+            $params[':q_id'] = $like;
         }
         if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
             $where .= " AND status = :status";

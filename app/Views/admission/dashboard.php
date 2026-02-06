@@ -17,8 +17,16 @@ declare(strict_types=1);
 
       <div class="col-12 col-md-6">
         <div class="border rounded p-3 bg-white">
+          <h6 class="fw-bold mb-1">Encode Test Results</h6>
+          <p class="text-muted small mb-2">Encode scores for pending students without records.</p>
+          <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode">Open</a>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6">
+        <div class="border rounded p-3 bg-white">
           <h6 class="fw-bold mb-1">Result Storage</h6>
-          <p class="text-muted small mb-2">Store and organize recommendation outputs.</p>
+          <p class="text-muted small mb-2">View and edit students with recorded scores.</p>
           <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/storage">Open</a>
         </div>
       </div>

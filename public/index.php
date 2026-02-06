@@ -88,6 +88,7 @@ $router->post('/administrator/accounts/reject', function () {
 $router->get('/administrator/matrix', [AdminController::class, 'matrix']);
 $router->post('/administrator/matrix', [AdminController::class, 'saveMatrix']);
 $router->get('/administrator/scores', [AdminController::class, 'scores']);
+$router->get('/administrator/scores/view', [AdminController::class, 'viewScores']);
 $router->get('/administrator/results', [AdminController::class, 'results']);
 $router->get('/administrator/logs', [AdminController::class, 'logs']);
 $router->get('/administrator/reports', [AdminController::class, 'reports']);
@@ -117,8 +118,11 @@ $router->post('/administrator/students/edit', function () {
 
 $router->get('/admission', [AdmissionController::class, 'dashboard']);
 $router->get('/admission/encode', [AdmissionController::class, 'encode']);
+$router->get('/admission/encode/edit', [AdmissionController::class, 'editScores']);
+$router->post('/admission/encode/edit', [AdmissionController::class, 'saveScores']);
 $router->get('/admission/results', [AdmissionController::class, 'results']);
 $router->get('/admission/storage', [AdmissionController::class, 'storage']);
+$router->get('/admission/storage/edit', [AdmissionController::class, 'editStoredScores']);
 $router->get('/admission/students', [AdmissionController::class, 'students']);
 $router->get('/admission/students/edit', [AdmissionController::class, 'editStudent']);
 $router->post('/admission/students/edit', [AdmissionController::class, 'updateStudent']);
