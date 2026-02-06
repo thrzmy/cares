@@ -260,6 +260,40 @@ a:hover {
   box-shadow: 0 14px 28px rgba(50, 27, 12, 0.12);
 }
 
+.dropdown-item.active,
+.dropdown-item:active {
+  background-color: rgba(111, 17, 25, 0.12);
+  color: var(--cares-maroon);
+}
+
+.dropdown-item.active .text-muted,
+.dropdown-item:active .text-muted {
+  color: var(--cares-maroon);
+}
+
+.btn-outline-secondary.active,
+.btn-outline-secondary:active {
+  background-color: var(--cares-maroon);
+  border-color: var(--cares-maroon);
+  color: #fff;
+}
+
+.btn-outline-secondary.active:hover,
+.btn-outline-secondary:active:hover {
+  background-color: var(--cares-maroon-700);
+  border-color: var(--cares-maroon-700);
+}
+
+.btn-outline-secondary:focus,
+.btn-outline-secondary:focus-visible,
+.btn-outline-secondary:active,
+.show > .btn-outline-secondary.dropdown-toggle {
+  color: #fff;
+  background-color: var(--cares-maroon);
+  border-color: var(--cares-maroon);
+  box-shadow: 0 0 0 0.2rem rgba(214, 168, 79, 0.25);
+}
+
 .pagination {
   --bs-pagination-color: var(--cares-maroon);
   --bs-pagination-hover-color: #4b0d13;
