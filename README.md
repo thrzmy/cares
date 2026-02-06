@@ -35,10 +35,19 @@ All application configuration values live in `.env` and are loaded at runtime. T
 - Session data is stored in PHP sessions.
 - Email uses the Brevo (Sendinblue) API; set `BREVO_API_KEY` to enable sending emails.
 
+## Testing
+
+Run the smoke tests for account and student management:
+
+```bash
+php scripts/smoke_test.php
+```
+
 ## Project structure
 
 ```
 app/        Application controllers, middleware, and services
 core/       Framework utilities (routing, DB, env loader)
 public/     Public entrypoint
+scripts/    Developer utilities
 ```
