@@ -7,8 +7,8 @@ $error = flash('error');
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Administrator</div>
-    <h4 class="fw-bold mb-1">Accounts</h4>
-    <p class="page-subtitle">Manage system users.</p>
+    <h4 class="fw-bold mb-1">Account Management</h4>
+    <p class="page-subtitle">Manage System Users (Administrators & Admission Personnel).</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts/create">Create Account</a>
@@ -93,7 +93,7 @@ $error = flash('error');
             </a>
           <?php else: ?>
             <button
-              class="btn btn-success btn-sm w-100 mt-3"
+              class="btn btn-danger btn-sm w-100 mt-3"
               type="button"
               data-bs-toggle="modal"
               data-bs-target="#reverifyModal"
@@ -181,7 +181,7 @@ $error = flash('error');
                     <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/accounts/edit?id=<?= (int)$u['id'] ?>">Edit</a>
                   <?php else: ?>
                     <button
-                      class="btn btn-success btn-sm"
+                      class="btn btn-danger btn-sm"
                       type="button"
                       data-bs-toggle="modal"
                       data-bs-target="#reverifyModal"

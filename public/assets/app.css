@@ -133,6 +133,41 @@ a:hover {
   letter-spacing: 0.02em;
 }
 
+.admin-tile-link {
+  color: inherit;
+  text-decoration: none;
+  display: block;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.admin-tile-link:hover {
+  color: inherit;
+  border-color: rgba(111, 17, 25, 0.35);
+  box-shadow: 0 12px 22px rgba(35, 18, 8, 0.1);
+}
+
+.admin-tile-link:focus-visible {
+  outline: 2px solid rgba(214, 168, 79, 0.6);
+  outline-offset: 3px;
+}
+
+.tile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(111, 17, 25, 0.1);
+  color: var(--cares-maroon);
+  flex-shrink: 0;
+}
+
+.tile-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
 .auth-shell {
   min-height: calc(100vh - 2rem);
 }

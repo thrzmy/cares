@@ -8,7 +8,7 @@ $error = flash('error');
   <div>
     <div class="page-kicker">Administrator</div>
     <h4 class="fw-bold mb-1">Student Management</h4>
-    <p class="page-subtitle">Student records are separate from system user accounts.</p>
+    <p class="page-subtitle">Manage student details and admission status.</p>
   </div>
   <div class="page-actions">
     <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/students/create">Add Student</a>
