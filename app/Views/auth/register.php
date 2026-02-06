@@ -3,7 +3,7 @@
 declare(strict_types=1);
 $success = flash('success');
 ?>
-<div class="row justify-content-center">
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 2rem);">
   <div class="col-12 col-md-7 col-lg-6">
     <div class="card shadow-sm">
       <div class="card-body p-4">

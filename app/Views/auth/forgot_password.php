@@ -1,7 +1,7 @@
 <?php
 
 declare(strict_types=1); ?>
-<div class="row justify-content-center">
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 2rem);">
     <div class="col-12 col-md-6 col-lg-5">
         <div class="card shadow-sm">
             <div class="card-body p-4">

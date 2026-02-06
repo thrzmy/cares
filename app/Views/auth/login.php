@@ -3,11 +3,14 @@
 declare(strict_types=1);
 $success = flash('success');
 ?>
-<div class="row justify-content-center">
+<div class="row justify-content-center align-items-center" style="min-height: calc(100vh - 2rem);">
   <div class="col-12 col-md-6 col-lg-5">
     <div class="card shadow-sm">
       <div class="card-body p-4">
-        <h4 class="fw-bold mb-1">Welcome to <?= e(APP_NAME) ?></h4>
+        <h4 class="fw-bold mb-0">Welcome to <?= e(APP_NAME) ?></h4>
+        <div class="text-muted small mb-2">
+          Course Admission and Recommendation System (CAReS)
+        </div>
         <p class="text-muted mb-4">Sign in to continue.</p>
         
         <?php if (!empty($success)): ?>
@@ -39,8 +42,7 @@ $success = flash('success');
         </form>
 
         <div class="text-muted small mt-3">
-          Administrator: manage accounts, matrix, results, logs, reports<br>
-          Admission: encode results, view recommendations, store outputs
+          Web-Based Admission Test Assessment with Intelligent Course Recommendation
         </div>
       </div>
     </div>

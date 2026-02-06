@@ -23,6 +23,7 @@ declare(strict_types=1);
 
 <body class="bg-light app-body">
 
+    <?php if (!empty($_SESSION['user_id'])): ?>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom app-nav">
         <div class="container">
 
@@ -92,15 +93,12 @@ declare(strict_types=1);
                                 </li>
                             </ul>
                         </div>
-                    <?php else: ?>
-                        <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/login">
-                            Login
-                        </a>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </nav>
+    <?php endif; ?>
 
 
     <main class="container py-3 py-md-4">
