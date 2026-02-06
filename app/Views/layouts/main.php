@@ -31,116 +31,71 @@ declare(strict_types=1);
                 <?= e(APP_NAME) ?>
             </a>
 
-            <!-- Mobile toggle -->
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <!-- Collapsible nav -->
-            <div class="collapse navbar-collapse" id="mainNav">
-
-                <!-- LEFT: role-based navigation -->
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <?php if (!empty($_SESSION['user_id'])): ?>
-
-                        <?php if (currentRole() === 'administrator'): ?>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator')) ?>" href="<?= e(BASE_PATH) ?>/administrator">
-                                    Dashboard
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/accounts')) ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">
-                                    Account Management
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/matrix')) ?>" href="<?= e(BASE_PATH) ?>/administrator/matrix">
-                                    Matrix Management
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/scores')) ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">
-                                    Encode Results
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/results')) ?>" href="<?= e(BASE_PATH) ?>/administrator/results">
-                                    View Results
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/logs')) ?>" href="<?= e(BASE_PATH) ?>/administrator/logs">
-                                    Monitor Logs
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/reports')) ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">
-                                    Reports
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/students')) ?>" href="<?= e(BASE_PATH) ?>/administrator/students">
-                                    Student Management
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/administrator/profile')) ?>" href="<?= e(BASE_PATH) ?>/administrator/profile">
-                                    My Profile
-                                </a>
-                            </li>
-
-                        <?php elseif (currentRole() === 'admission'): ?>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admission')) ?>" href="<?= e(BASE_PATH) ?>/admission">
-                                    Dashboard
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admission/encode')) ?>" href="<?= e(BASE_PATH) ?>/admission/encode">
-                                    Encode Results
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admission/results')) ?>" href="<?= e(BASE_PATH) ?>/admission/results">
-                                    View Results
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admission/storage')) ?>" href="<?= e(BASE_PATH) ?>/admission/storage">
-                                    Result Storage
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link <?= e(isActive('/admission/students')) ?>" href="<?= e(BASE_PATH) ?>/admission/students">
-                                    Account Management
-                                </a>
-                            </li>
-                        <?php endif; ?>
-
-                    <?php endif; ?>
-                </ul>
-
+            <div class="d-flex align-items-center ms-auto">
                 <!-- RIGHT: user info / auth -->
                 <div class="d-flex gap-2 align-items-center nav-auth">
                     <?php if (!empty($_SESSION['user_id'])): ?>
-                        <?php $roleLabel = ucfirst((string)($_SESSION['role'] ?? '')); ?>
-                        <span class="badge text-bg-light border">
-                            <?= e($roleLabel) ?>
-                        </span>
-                        <span class="text-muted small d-none d-md-inline">
-                            <?= e((string)($_SESSION['name'] ?? '')) ?>
-                        </span>
-                        <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/logout">
-                            Logout
-                        </a>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <?= e(ucfirst(strtolower((string)($_SESSION['name'] ?? 'Account')))) ?>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <?php if (currentRole() === 'administrator'): ?>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator')) ?>" href="<?= e(BASE_PATH) ?>/administrator">Dashboard</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator/accounts')) ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">Account Management</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator/students')) ?>" href="<?= e(BASE_PATH) ?>/administrator/students">Student Management</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator/scores')) ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">Result Storage</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator/results')) ?>" href="<?= e(BASE_PATH) ?>/administrator/results">Course Recommendation</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator/reports')) ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">System Reports</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator/logs')) ?>" href="<?= e(BASE_PATH) ?>/administrator/logs">Monitor Logs</a>
+                                    </li>
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/administrator/profile')) ?>" href="<?= e(BASE_PATH) ?>/administrator/profile">My Profile</a>
+                                    </li>
+                                <?php elseif (currentRole() === 'admission'): ?>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/admission')) ?>" href="<?= e(BASE_PATH) ?>/admission">Dashboard</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/admission/students')) ?>" href="<?= e(BASE_PATH) ?>/admission/students">Student Management</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/admission/storage')) ?>" href="<?= e(BASE_PATH) ?>/admission/storage">Result Storage</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item <?= e(isActive('/admission/results')) ?>" href="<?= e(BASE_PATH) ?>/admission/results">Course Recommendation</a>
+                                    </li>
+                                <?php endif; ?>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="<?= e(BASE_PATH) ?>/logout">Logout</a>
+                                </li>
+                            </ul>
+                        </div>
                     <?php else: ?>
                         <a class="btn btn-primary btn-sm" href="<?= e(BASE_PATH) ?>/login">
                             Login
                         </a>
                     <?php endif; ?>
                 </div>
-
             </div>
         </div>
     </nav>

@@ -26,6 +26,12 @@ a:hover {
 .navbar.app-nav {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
+  position: relative;
+  z-index: 1030;
+}
+
+.navbar .dropdown-menu {
+  z-index: 1050;
 }
 
 .card {

@@ -61,5 +61,12 @@ function flash(string $key, ?string $value = null): ?string
 function isActive(string $path): string
 {
     $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-    return str_contains($uri, BASE_PATH . $path) ? 'active' : '';
+    $current = str_starts_with($uri, BASE_PATH) ? substr($uri, strlen(BASE_PATH)) : $uri;
+    $current = $current === '' ? '/' : $current;
+
+    if ($path === '/administrator' || $path === '/admission') {
+        return $current === $path ? 'active' : '';
+    }
+
+    return ($current === $path || str_starts_with($current, $path . '/')) ? 'active' : '';
 }
