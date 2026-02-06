@@ -121,9 +121,14 @@ $router->get('/admission/encode', [AdmissionController::class, 'encode']);
 $router->get('/admission/encode/edit', [AdmissionController::class, 'editScores']);
 $router->post('/admission/encode/edit', [AdmissionController::class, 'saveScores']);
 $router->get('/admission/results', [AdmissionController::class, 'results']);
+$router->get('/admission/results/view', [AdmissionController::class, 'viewScores']);
+$router->get('/admission/reports', [AdmissionController::class, 'reports']);
+$router->get('/admission/logs', [AdmissionController::class, 'logs']);
 $router->get('/admission/storage', [AdmissionController::class, 'storage']);
 $router->get('/admission/storage/edit', [AdmissionController::class, 'editStoredScores']);
 $router->get('/admission/students', [AdmissionController::class, 'students']);
+$router->get('/admission/students/create', [AdmissionController::class, 'createStudent']);
+$router->post('/admission/students/create', [AdmissionController::class, 'storeStudent']);
 $router->get('/admission/students/edit', [AdmissionController::class, 'editStudent']);
 $router->post('/admission/students/edit', [AdmissionController::class, 'updateStudent']);
 

@@ -54,6 +54,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
+        $viewMode = (string)($_GET['view'] ?? '') === '1';
         $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
@@ -65,8 +66,26 @@ final class AdmissionController
         }
 
         if (ScoresService::hasScores($id)) {
-            flash('error', 'May scores na. Please edit in Result Storage.');
-            redirect('/admission/encode');
+            if (!$viewMode) {
+                flash('error', 'Scores already encoded. Please edit in Result Storage.');
+                redirect('/admission/encode');
+            }
+
+            $parts = WeightsService::getExamParts();
+            $scoresMap = ScoresService::getStudentScoresMap($id);
+            $recommendations = self::getTopRecommendationsForStudent($id, 3);
+
+            View::render('admission/encode_form', [
+                'title' => 'View Results',
+                'student' => $student,
+                'parts' => $parts,
+                'scoresMap' => $scoresMap,
+                'recommendations' => $recommendations,
+                'error' => null,
+                'success' => flash('success'),
+                'mode' => 'view',
+            ]);
+            return;
         }
 
         $parts = WeightsService::getExamParts();
@@ -101,7 +120,7 @@ final class AdmissionController
 
         $mode = (string)($_POST['mode'] ?? 'encode');
         if ($mode !== 'edit' && ScoresService::hasScores($id)) {
-            flash('error', 'May scores na. Please edit in Result Storage.');
+            flash('error', 'Scores already encoded');
             redirect('/admission/encode');
         }
 
@@ -118,7 +137,7 @@ final class AdmissionController
             if ($mode === 'edit') {
                 redirect('/admission/storage/edit?id=' . $id);
             }
-            redirect('/admission/encode/edit?id=' . $id);
+            redirect('/admission/encode/edit?id=' . $id . '&view=1');
         } catch (Throwable $e) {
             $parts = WeightsService::getExamParts();
             $scoresMap = ScoresService::getStudentScoresMap($id);
@@ -138,7 +157,114 @@ final class AdmissionController
     public static function results(): void
     {
         RoleMiddleware::requireRole('admission');
-        View::render('admission/results', ['title' => 'Course Recommendations']);
+
+        $q = trim((string)($_GET['q'] ?? ''));
+        $status = trim((string)($_GET['status'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 5;
+
+        $params = [];
+        $where = "WHERE s.is_deleted = 0
+                  AND EXISTS (
+                      SELECT 1
+                      FROM student_exam_scores ses
+                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
+                  )";
+        if ($q !== '') {
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $like = '%' . $q . '%';
+            $params[':q_name'] = $like;
+            $params[':q_email'] = $like;
+            $params[':q_id'] = $like;
+        }
+        if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+            $where .= " AND s.status = :status";
+            $params[':status'] = $status;
+        }
+
+        $countSql = "SELECT COUNT(*)
+                     FROM students s
+                     $where";
+        $countSt = Database::pdo()->prepare($countSql);
+        $countSt->execute($params);
+        $total = (int)$countSt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+                FROM students s
+                $where
+                ORDER BY s.created_at DESC
+                LIMIT :limit OFFSET :offset";
+        $st = Database::pdo()->prepare($sql);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value);
+        }
+        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
+        $students = $st->fetchAll();
+
+        $recommendations = [];
+        if (!empty($students)) {
+            $studentIds = array_map(
+                static fn($row) => (int)$row['id'],
+                $students
+            );
+            $recommendations = self::getRecommendationsForStudents($studentIds, 3);
+        }
+
+        View::render('admission/results', [
+            'title' => 'Results & Recommendations',
+            'students' => $students,
+            'recommendations' => $recommendations,
+            'q' => $q,
+            'statusFilter' => $status,
+            'success' => flash('success'),
+            'error' => flash('error'),
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/admission/results',
+                'query' => [
+                    'q' => $q,
+                    'status' => $status,
+                ],
+            ],
+        ]);
+    }
+
+    public static function viewScores(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $id = (int)($_GET['id'] ?? 0);
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $id]);
+        $student = $st->fetch();
+
+        if (!$student) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Not Found']);
+            return;
+        }
+
+        $parts = WeightsService::getExamParts();
+        $scoresMap = ScoresService::getStudentScoresMap($id);
+
+        View::render('admission/view_scores', [
+            'title' => 'View Scores',
+            'student' => $student,
+            'parts' => $parts,
+            'scoresMap' => $scoresMap,
+        ]);
     }
 
     public static function storage(): void
@@ -220,6 +346,8 @@ final class AdmissionController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 5;
 
         $params = [];
         $where = "WHERE is_deleted = 0";
@@ -235,20 +363,129 @@ final class AdmissionController
             $params[':status'] = $status;
         }
 
+        $countSql = "SELECT COUNT(*)
+                     FROM students
+                     $where";
+        $countSt = Database::pdo()->prepare($countSql);
+        $countSt->execute($params);
+        $total = (int)$countSt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
         $sql = "SELECT id, id_number, name, email, status, created_at
                 FROM students
                 $where
-                ORDER BY created_at DESC";
+                ORDER BY created_at DESC
+                LIMIT :limit OFFSET :offset";
         $st = Database::pdo()->prepare($sql);
-        $st->execute($params);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value);
+        }
+        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
         $students = $st->fetchAll();
 
         View::render('admission/students', [
-            'title' => 'Students',
+            'title' => 'Student Management',
             'students' => $students,
             'q' => $q,
             'statusFilter' => $status,
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/admission/students',
+                'query' => [
+                    'q' => $q,
+                    'status' => $status,
+                ],
+            ],
         ]);
+    }
+
+    public static function createStudent(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        View::render('students/form', [
+            'title' => 'Create Student',
+            'mode' => 'create',
+            'action' => '/admission/students/create',
+            'student' => ['name' => '', 'email' => '', 'id_number' => '', 'status' => 'pending'],
+            'error' => null,
+        ]);
+    }
+
+    public static function storeStudent(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('admission');
+
+        $name = trim((string)($_POST['name'] ?? ''));
+        $email = trim((string)($_POST['email'] ?? ''));
+        $idNumber = trim((string)($_POST['id_number'] ?? ''));
+        $status = (string)($_POST['status'] ?? 'pending');
+
+        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            self::renderStudentFormMode('create', 'Please enter a valid name and email.', [
+                'name' => $name,
+                'email' => $email,
+                'id_number' => $idNumber,
+                'status' => $status,
+            ]);
+            return;
+        }
+
+        if (!in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+            $status = 'pending';
+        }
+
+        if ($status === 'admitted' && $idNumber === '') {
+            self::renderStudentFormMode('create', 'ID number is required for admitted students.', [
+                'name' => $name,
+                'email' => $email,
+                'id_number' => $idNumber,
+                'status' => $status,
+            ]);
+            return;
+        }
+
+        $pdo = Database::pdo();
+        $check = $pdo->prepare("SELECT id FROM students WHERE (email = :email OR id_number = :id_number) AND is_deleted = 0 LIMIT 1");
+        $check->execute([
+            ':email' => $email,
+            ':id_number' => $idNumber === '' ? null : $idNumber,
+        ]);
+        if ($check->fetch()) {
+            self::renderStudentFormMode('create', 'Email or ID number is already in use.', [
+                'name' => $name,
+                'email' => $email,
+                'id_number' => $idNumber,
+                'status' => $status,
+            ]);
+            return;
+        }
+
+        $pdo->prepare("INSERT INTO students (id_number, name, email, status, created_by)
+                       VALUES (:id_number, :name, :email, :status, :created_by)")
+            ->execute([
+                ':id_number' => $idNumber === '' ? null : $idNumber,
+                ':name' => $name,
+                ':email' => $email,
+                ':status' => $status,
+                ':created_by' => (int)($_SESSION['user_id'] ?? 0),
+            ]);
+
+        Logger::log(currentUserId(), 'CREATE_STUDENT', 'students', (int)$pdo->lastInsertId(), 'Created student record');
+        flash('success', 'Student created.');
+        redirect('/admission/students');
     }
 
     public static function editStudent(): void
@@ -287,7 +524,7 @@ final class AdmissionController
         $status = (string)($_POST['status'] ?? 'pending');
 
         if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            self::renderStudentForm('Please enter a valid name and email.', [
+            self::renderStudentFormMode('edit', 'Please enter a valid name and email.', [
                 'id' => $id,
                 'name' => $name,
                 'email' => $email,
@@ -302,7 +539,7 @@ final class AdmissionController
         }
 
         if ($status === 'admitted' && $idNumber === '') {
-            self::renderStudentForm('ID number is required for admitted students.', [
+            self::renderStudentFormMode('edit', 'ID number is required for admitted students.', [
                 'id' => $id,
                 'name' => $name,
                 'email' => $email,
@@ -320,7 +557,7 @@ final class AdmissionController
             ':id' => $id,
         ]);
         if ($check->fetch()) {
-            self::renderStudentForm('Email or ID number is already in use.', [
+            self::renderStudentFormMode('edit', 'Email or ID number is already in use.', [
                 'id' => $id,
                 'name' => $name,
                 'email' => $email,
@@ -351,12 +588,414 @@ final class AdmissionController
         redirect('/admission/students');
     }
 
-    private static function renderStudentForm(string $error, array $student): void
+    public static function logs(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        $q = trim((string)($_GET['q'] ?? ''));
+        $action = trim((string)($_GET['action'] ?? ''));
+        $entity = trim((string)($_GET['entity'] ?? ''));
+        $startDate = trim((string)($_GET['start_date'] ?? ''));
+        $endDate = trim((string)($_GET['end_date'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 10;
+
+        $actionListSt = Database::pdo()->prepare("SELECT DISTINCT action FROM logs WHERE user_id = :user_id ORDER BY action");
+        $actionListSt->execute([':user_id' => $userId]);
+        $actionList = $actionListSt->fetchAll(PDO::FETCH_COLUMN);
+
+        $entityListSt = Database::pdo()->prepare("SELECT DISTINCT entity FROM logs WHERE user_id = :user_id AND entity IS NOT NULL AND entity <> '' ORDER BY entity");
+        $entityListSt->execute([':user_id' => $userId]);
+        $entityList = $entityListSt->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!in_array($action, $actionList, true)) {
+            $action = '';
+        }
+        if (!in_array($entity, $entityList, true)) {
+            $entity = '';
+        }
+        $startDate = self::normalizeDateInput($startDate);
+        $endDate = self::normalizeDateInput($endDate);
+
+        $where = "WHERE l.user_id = :user_id";
+        $params = [':user_id' => $userId];
+
+        if ($action !== '') {
+            $where .= " AND l.action = :action";
+            $params[':action'] = $action;
+        }
+        if ($entity !== '') {
+            $where .= " AND l.entity = :entity";
+            $params[':entity'] = $entity;
+        }
+        if ($q !== '') {
+            $where .= " AND (l.action LIKE :q OR l.entity LIKE :q OR l.details LIKE :q)";
+            $params[':q'] = '%' . $q . '%';
+        }
+        if ($startDate !== '') {
+            $where .= " AND l.created_at >= :start_date";
+            $params[':start_date'] = $startDate . ' 00:00:00';
+        }
+        if ($endDate !== '') {
+            $where .= " AND l.created_at <= :end_date";
+            $params[':end_date'] = $endDate . ' 23:59:59';
+        }
+
+        $countSql = "SELECT COUNT(*)
+                     FROM logs l
+                     $where";
+        $countSt = Database::pdo()->prepare($countSql);
+        $countSt->execute($params);
+        $total = (int)$countSt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        $sql = "SELECT l.id,
+                       l.user_id,
+                       l.action,
+                       l.entity,
+                       l.entity_id,
+                       l.details,
+                       l.created_at,
+                       u.name AS user_name,
+                       u.email AS user_email,
+                       COALESCE(s.name, eu.name) AS entity_name,
+                       COALESCE(s.id_number, eu.email) AS entity_ref
+                FROM logs l
+                LEFT JOIN users u ON u.id = l.user_id
+                LEFT JOIN students s
+                    ON l.entity = 'students' AND s.id = l.entity_id
+                LEFT JOIN users eu
+                    ON l.entity = 'users' AND eu.id = l.entity_id
+                $where
+                ORDER BY l.created_at DESC
+                LIMIT :limit OFFSET :offset";
+        $st = Database::pdo()->prepare($sql);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value);
+        }
+        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
+        $logs = $st->fetchAll();
+
+        View::render('admission/logs', [
+            'title' => 'My Activity Logs',
+            'logs' => $logs,
+            'q' => $q,
+            'actionFilter' => $action,
+            'entityFilter' => $entity,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'actionList' => $actionList,
+            'entityList' => $entityList,
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/admission/logs',
+                'query' => [
+                    'q' => $q,
+                    'action' => $action,
+                    'entity' => $entity,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                ],
+            ],
+        ]);
+    }
+
+    public static function reports(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $startDate = self::normalizeDateInput(trim((string)($_GET['start_date'] ?? '')));
+        $endDate = self::normalizeDateInput(trim((string)($_GET['end_date'] ?? '')));
+
+        if ($startDate !== '' && $endDate !== '' && $endDate < $startDate) {
+            $tmp = $startDate;
+            $startDate = $endDate;
+            $endDate = $tmp;
+        }
+
+        $addDateFilter = static function (string $column, array &$params) use ($startDate, $endDate): string {
+            $clause = '';
+            if ($startDate !== '') {
+                $clause .= " AND {$column} >= :start_date";
+                $params[':start_date'] = $startDate . ' 00:00:00';
+            }
+            if ($endDate !== '') {
+                $clause .= " AND {$column} <= :end_date";
+                $params[':end_date'] = $endDate . ' 23:59:59';
+            }
+            return $clause;
+        };
+
+        $studentsParams = [];
+        $studentsWhere = "WHERE is_deleted = 0";
+        $studentsWhere .= $addDateFilter('created_at', $studentsParams);
+
+        $studentsTotalSt = Database::pdo()->prepare("SELECT COUNT(*) FROM students {$studentsWhere}");
+        $studentsTotalSt->execute($studentsParams);
+        $studentsTotal = (int)$studentsTotalSt->fetchColumn();
+
+        $studentStatusSt = Database::pdo()->prepare("SELECT status, COUNT(*) AS total FROM students {$studentsWhere} GROUP BY status ORDER BY total DESC");
+        $studentStatusSt->execute($studentsParams);
+        $studentStatusCounts = $studentStatusSt->fetchAll();
+
+        $scoresParams = [];
+        $scoresWhere = "WHERE ses.is_deleted = 0";
+        $scoresWhere .= $addDateFilter('ses.created_at', $scoresParams);
+
+        $scoreEntriesSt = Database::pdo()->prepare("SELECT COUNT(*) FROM student_exam_scores ses {$scoresWhere}");
+        $scoreEntriesSt->execute($scoresParams);
+        $scoreEntries = (int)$scoreEntriesSt->fetchColumn();
+
+        $studentsWithScoresSt = Database::pdo()->prepare(
+            "SELECT COUNT(DISTINCT s.id)
+             FROM students s
+             INNER JOIN student_exam_scores ses
+               ON ses.student_id = s.id AND ses.is_deleted = 0
+             WHERE s.is_deleted = 0" . $addDateFilter('ses.created_at', $scoresParams)
+        );
+        $studentsWithScoresSt->execute($scoresParams);
+        $studentsWithScores = (int)$studentsWithScoresSt->fetchColumn();
+        $studentsWithoutScores = max(0, $studentsTotal - $studentsWithScores);
+
+        $examParams = [];
+        $examWhere = $addDateFilter('ses.created_at', $examParams);
+        $examPartsSt = Database::pdo()->prepare(
+            "SELECT ep.name,
+                    ep.max_score,
+                    COUNT(ses.id) AS entries,
+                    AVG(ses.score) AS avg_score
+             FROM exam_parts ep
+             LEFT JOIN student_exam_scores ses
+               ON ses.exam_part_id = ep.id
+              AND ses.is_deleted = 0
+              {$examWhere}
+             WHERE ep.is_deleted = 0
+             GROUP BY ep.id
+             ORDER BY ep.name"
+        );
+        $examPartsSt->execute($examParams);
+        $examParts = $examPartsSt->fetchAll();
+
+        $recParams = [];
+        $recDateFilter = $addDateFilter('ses.created_at', $recParams);
+        $recommendationsSt = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    ses.student_id,
+                    c.course_code,
+                    c.course_name,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ses.student_id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                    ) AS rn
+                FROM student_exam_scores ses
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                INNER JOIN courses c
+                    ON c.id = w.course_id AND c.is_deleted = 0
+                WHERE ses.is_deleted = 0
+                {$recDateFilter}
+                GROUP BY ses.student_id, c.id
+            )
+            SELECT course_code,
+                   course_name,
+                   COUNT(*) AS student_count,
+                   AVG(total_score) AS avg_score
+            FROM ranked
+            WHERE rn = 1
+            GROUP BY course_code, course_name
+            ORDER BY student_count DESC, avg_score DESC
+            LIMIT 3"
+        );
+        $recommendationsSt->execute($recParams);
+        $topRecommendations = $recommendationsSt->fetchAll();
+
+        $studentsWithRecommendationsSt = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    ses.student_id,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ses.student_id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                    ) AS rn
+                FROM student_exam_scores ses
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                WHERE ses.is_deleted = 0
+                {$recDateFilter}
+                GROUP BY ses.student_id
+            )
+            SELECT COUNT(*) FROM ranked WHERE rn = 1"
+        );
+        $studentsWithRecommendationsSt->execute($recParams);
+        $studentsWithRecommendations = (int)$studentsWithRecommendationsSt->fetchColumn();
+
+        $periodLabel = 'All time';
+        if ($startDate !== '' || $endDate !== '') {
+            $startLabel = $startDate !== '' ? date('M j, Y', strtotime($startDate)) : 'Beginning';
+            $endLabel = $endDate !== '' ? date('M j, Y', strtotime($endDate)) : 'Present';
+            $periodLabel = $startLabel . ' to ' . $endLabel;
+        }
+
+        View::render('admission/reports', [
+            'title' => 'System Reports',
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'periodLabel' => $periodLabel,
+            'summary' => [
+                'students_total' => $studentsTotal,
+                'score_entries' => $scoreEntries,
+                'students_without_scores' => $studentsWithoutScores,
+                'students_with_recommendations' => $studentsWithRecommendations,
+            ],
+            'studentStatusCounts' => $studentStatusCounts,
+            'examParts' => $examParts,
+            'topRecommendations' => $topRecommendations,
+        ]);
+    }
+
+    private static function normalizeDateInput(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return '';
+        }
+        $dt = DateTime::createFromFormat('Y-m-d', $value);
+        if (!$dt || $dt->format('Y-m-d') !== $value) {
+            return '';
+        }
+        return $value;
+    }
+
+    private static function getRecommendationsForStudents(array $studentIds, int $limit): array
+    {
+        if (empty($studentIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+        $recSql = "WITH ranked AS (
+                      SELECT
+                          ses.student_id,
+                          c.course_code,
+                          c.course_name,
+                          SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                          ROW_NUMBER() OVER (
+                              PARTITION BY ses.student_id
+                              ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                          ) AS rn
+                      FROM student_exam_scores ses
+                      INNER JOIN exam_parts ep
+                          ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                      INNER JOIN weights w
+                          ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                      INNER JOIN courses c
+                          ON c.id = w.course_id AND c.is_deleted = 0
+                      WHERE ses.is_deleted = 0
+                        AND ses.student_id IN ($placeholders)
+                      GROUP BY ses.student_id, c.id
+                    )
+                    SELECT student_id, course_code, course_name, total_score, rn
+                    FROM ranked
+                    WHERE rn <= ?
+                    ORDER BY student_id, rn";
+
+        $recSt = Database::pdo()->prepare($recSql);
+        $recSt->execute(array_merge($studentIds, [$limit]));
+        $recRows = $recSt->fetchAll();
+
+        $recommendations = [];
+        foreach ($recRows as $row) {
+            $sid = (int)$row['student_id'];
+            if (!isset($recommendations[$sid])) {
+                $recommendations[$sid] = [];
+            }
+            $recommendations[$sid][] = [
+                'course_code' => (string)$row['course_code'],
+                'course_name' => (string)$row['course_name'],
+                'total_score' => (float)$row['total_score'],
+                'rank' => (int)$row['rn'],
+            ];
+        }
+
+        return $recommendations;
+    }
+
+    private static function getTopRecommendationsForStudent(int $studentId, int $limit): array
+    {
+        $sql = "WITH ranked AS (
+                  SELECT
+                      c.course_code,
+                      c.course_name,
+                      SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                      ROW_NUMBER() OVER (
+                          ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                      ) AS rn
+                  FROM student_exam_scores ses
+                  INNER JOIN exam_parts ep
+                      ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                  INNER JOIN weights w
+                      ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                  INNER JOIN courses c
+                      ON c.id = w.course_id AND c.is_deleted = 0
+                  WHERE ses.is_deleted = 0
+                    AND ses.student_id = :student_id
+                  GROUP BY c.id
+                )
+                SELECT course_code, course_name, total_score, rn
+                FROM ranked
+                WHERE rn <= :limit
+                ORDER BY rn";
+
+        $st = Database::pdo()->prepare($sql);
+        $st->bindValue(':student_id', $studentId, PDO::PARAM_INT);
+        $st->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $st->execute();
+
+        $rows = $st->fetchAll();
+        $recommendations = [];
+        foreach ($rows as $row) {
+            $recommendations[] = [
+                'course_code' => (string)$row['course_code'],
+                'course_name' => (string)$row['course_name'],
+                'total_score' => (float)$row['total_score'],
+                'rank' => (int)$row['rn'],
+            ];
+        }
+
+        return $recommendations;
+    }
+
+    private static function renderStudentFormMode(string $mode, string $error, array $student): void
     {
         View::render('students/form', [
-            'title' => 'Edit Student',
-            'mode' => 'edit',
-            'action' => '/admission/students/edit',
+            'title' => $mode === 'create' ? 'Create Student' : 'Edit Student',
+            'mode' => $mode,
+            'action' => $mode === 'create' ? '/admission/students/create' : '/admission/students/edit',
             'student' => $student,
             'error' => $error,
         ]);

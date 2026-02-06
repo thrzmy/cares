@@ -82,10 +82,13 @@ declare(strict_types=1);
                                             <a class="dropdown-item <?= e(isActive('/admission/encode')) ?>" href="<?= e(BASE_PATH) ?>/admission/encode">Encode Test Results</a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item <?= e(isActive('/admission/storage')) ?>" href="<?= e(BASE_PATH) ?>/admission/storage">Result Storage</a>
+                                            <a class="dropdown-item <?= e(isActive('/admission/results')) ?>" href="<?= e(BASE_PATH) ?>/admission/results">Results & Recommendations</a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item <?= e(isActive('/admission/results')) ?>" href="<?= e(BASE_PATH) ?>/admission/results">Course Recommendation</a>
+                                            <a class="dropdown-item <?= e(isActive('/admission/reports')) ?>" href="<?= e(BASE_PATH) ?>/admission/reports">System Reports</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/admission/logs')) ?>" href="<?= e(BASE_PATH) ?>/admission/logs">Activity Logs</a>
                                         </li>
                                     <?php endif; ?>
                                     <li>
