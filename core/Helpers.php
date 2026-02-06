@@ -25,7 +25,6 @@ function verifyCsrfOrFail(): void
     $token = (string)($_POST['_csrf'] ?? '');
     if ($token === '' || empty($_SESSION['_csrf']) || !hash_equals($_SESSION['_csrf'], $token)) {
         http_response_code(419);
-        http_response_code(419);
         View::render('errors/419', ['title' => 'Session Expired']);
         exit;
     }
@@ -64,4 +63,3 @@ function isActive(string $path): string
     $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     return str_contains($uri, BASE_PATH . $path) ? 'active' : '';
 }
-
