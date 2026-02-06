@@ -263,7 +263,138 @@ final class AdminController
     public static function logs(): void
     {
         RoleMiddleware::requireRole('administrator');
-        View::render('admin/logs', ['title' => 'Monitor Logs']);
+        $q = trim((string)($_GET['q'] ?? ''));
+        $action = trim((string)($_GET['action'] ?? ''));
+        $entity = trim((string)($_GET['entity'] ?? ''));
+        $startDate = trim((string)($_GET['start_date'] ?? ''));
+        $endDate = trim((string)($_GET['end_date'] ?? ''));
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 10;
+
+        $actionList = Database::pdo()
+            ->query("SELECT DISTINCT action FROM logs ORDER BY action")
+            ->fetchAll(PDO::FETCH_COLUMN);
+        $entityList = Database::pdo()
+            ->query("SELECT DISTINCT entity FROM logs WHERE entity IS NOT NULL AND entity <> '' ORDER BY entity")
+            ->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!in_array($action, $actionList, true)) {
+            $action = '';
+        }
+        if (!in_array($entity, $entityList, true)) {
+            $entity = '';
+        }
+        $startDate = self::normalizeDateInput($startDate);
+        $endDate = self::normalizeDateInput($endDate);
+
+        $where = "WHERE 1=1";
+        $params = [];
+
+        if ($action !== '') {
+            $where .= " AND l.action = :action";
+            $params[':action'] = $action;
+        }
+        if ($entity !== '') {
+            $where .= " AND l.entity = :entity";
+            $params[':entity'] = $entity;
+        }
+        if ($q !== '') {
+            $where .= " AND (u.name LIKE :q OR u.email LIKE :q OR l.action LIKE :q OR l.entity LIKE :q OR l.details LIKE :q)";
+            $params[':q'] = '%' . $q . '%';
+        }
+        if ($startDate !== '') {
+            $where .= " AND l.created_at >= :start_date";
+            $params[':start_date'] = $startDate . ' 00:00:00';
+        }
+        if ($endDate !== '') {
+            $where .= " AND l.created_at <= :end_date";
+            $params[':end_date'] = $endDate . ' 23:59:59';
+        }
+
+        $countSql = "SELECT COUNT(*)
+                     FROM logs l
+                     LEFT JOIN users u ON u.id = l.user_id
+                     $where";
+        $countSt = Database::pdo()->prepare($countSql);
+        $countSt->execute($params);
+        $total = (int)$countSt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+
+        $sql = "SELECT l.id,
+                       l.user_id,
+                       l.action,
+                       l.entity,
+                       l.entity_id,
+                       l.details,
+                       l.created_at,
+                       u.name AS user_name,
+                       u.email AS user_email,
+                       COALESCE(s.name, eu.name) AS entity_name,
+                       COALESCE(s.id_number, eu.email) AS entity_ref
+                FROM logs l
+                LEFT JOIN users u ON u.id = l.user_id
+                LEFT JOIN students s
+                    ON l.entity = 'students' AND s.id = l.entity_id
+                LEFT JOIN users eu
+                    ON l.entity = 'users' AND eu.id = l.entity_id
+                $where
+                ORDER BY l.created_at DESC
+                LIMIT :limit OFFSET :offset";
+        $st = Database::pdo()->prepare($sql);
+        foreach ($params as $key => $value) {
+            $st->bindValue($key, $value);
+        }
+        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $st->execute();
+        $logs = $st->fetchAll();
+
+        View::render('admin/logs', [
+            'title' => 'Monitor Logs',
+            'logs' => $logs,
+            'q' => $q,
+            'actionFilter' => $action,
+            'entityFilter' => $entity,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'actionList' => $actionList,
+            'entityList' => $entityList,
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/administrator/logs',
+                'query' => [
+                    'q' => $q,
+                    'action' => $action,
+                    'entity' => $entity,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                ],
+            ],
+        ]);
+    }
+
+    private static function normalizeDateInput(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return '';
+        }
+        $dt = DateTime::createFromFormat('Y-m-d', $value);
+        if (!$dt || $dt->format('Y-m-d') !== $value) {
+            return '';
+        }
+        return $value;
     }
 
     public static function reports(): void
