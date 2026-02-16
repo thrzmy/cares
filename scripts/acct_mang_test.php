@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 // Simple smoke tests for account + student management.
-// Run: php scripts/smoke_test.php
+// Run: php scripts/acct_mang_test.php
 
 require_once __DIR__ . '/../core/bootstrap.php';
 
