@@ -5,8 +5,17 @@ declare(strict_types=1);
 // Run: php scripts/run_tests.php
 
 $tests = [
-    __DIR__ . '/acct_mang_test.php',
-    __DIR__ . '/auth_test.php',
+    __DIR__ . '/tests/accounts/account_management_test.php',
+    __DIR__ . '/tests/auth/auth_test.php',
+    __DIR__ . '/tests/services/password_service_test.php',
+    __DIR__ . '/tests/services/token_service_test.php',
+    __DIR__ . '/tests/services/email_verification_service_test.php',
+    __DIR__ . '/tests/services/mailer_test.php',
+    __DIR__ . '/tests/services/weights_service_test.php',
+    __DIR__ . '/tests/services/scores_recommendation_test.php',
+    __DIR__ . '/tests/services/logger_test.php',
+    __DIR__ . '/tests/modules/reports_test.php',
+    __DIR__ . '/tests/modules/profile_password_test.php',
 ];
 
 foreach ($tests as $test) {

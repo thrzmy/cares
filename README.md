@@ -26,7 +26,7 @@ app/        Controllers, middleware, services, and views
 core/       Framework utilities (router, DB, env, helpers)
 database/   SQL schema and seed data
 public/     Web entrypoint (document root)
-scripts/    Local test scripts
+scripts/    Test runner + module test suites
 ```
 
 ## Requirements
@@ -145,12 +145,31 @@ Use this section when onboarding a client domain/email.
 
 ## Running Tests
 
-Available scripts:
+Main runner:
 
-- `php scripts/acct_mang_test.php`
-- `php scripts/auth_test.php`
+- `php scripts/run_tests.php`
 
-`php scripts/run_tests.php` is also included as a wrapper runner.
+Test tree:
+
+- `scripts/tests/accounts/account_management_test.php`
+- `scripts/tests/auth/auth_test.php`
+- `scripts/tests/services/password_service_test.php`
+- `scripts/tests/services/token_service_test.php`
+- `scripts/tests/services/email_verification_service_test.php`
+- `scripts/tests/services/mailer_test.php`
+- `scripts/tests/services/weights_service_test.php`
+- `scripts/tests/services/scores_recommendation_test.php`
+- `scripts/tests/services/logger_test.php`
+- `scripts/tests/modules/reports_test.php`
+- `scripts/tests/modules/profile_password_test.php`
+
+Run an individual suite directly, for example:
+
+- `php scripts/tests/auth/auth_test.php`
+
+Notes:
+
+- `mailer_test.php` skips outbound send checks when `BREVO_API_KEY` is set to avoid external side effects.
 
 ## Deployment Checklist
 

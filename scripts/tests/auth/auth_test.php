@@ -2,29 +2,9 @@
 declare(strict_types=1);
 
 // Authentication-focused smoke tests.
-// Run: php scripts/auth_test.php
+// Run: php scripts/tests/auth/auth_test.php
 
-require_once __DIR__ . '/../core/bootstrap.php';
-
-function ok(string $msg): void
-{
-    echo "[OK] {$msg}\n";
-}
-
-function fail(string $msg): void
-{
-    echo "[FAIL] {$msg}\n";
-    exit(1);
-}
-
-function expect(bool $condition, string $msg): void
-{
-    if ($condition) {
-        ok($msg);
-        return;
-    }
-    fail($msg);
-}
+require_once __DIR__ . '/../_bootstrap.php';
 
 function simulateLogin(PDO $pdo, string $email, string $password): string
 {
@@ -59,9 +39,9 @@ function simulateLogin(PDO $pdo, string $email, string $password): string
 
     if (!password_verify($password, (string)$user['password'])) {
         $attempts = ((int)$user['failed_login_attempts']) + 1;
-        $lockedUntil = null;
+        $nextLockedUntil = null;
         if ($attempts >= 5) {
-            $lockedUntil = appNow()->modify('+10 minutes')->format('Y-m-d H:i:s');
+            $nextLockedUntil = appNow()->modify('+10 minutes')->format('Y-m-d H:i:s');
         }
 
         $upd = "UPDATE users
@@ -71,11 +51,11 @@ function simulateLogin(PDO $pdo, string $email, string $password): string
                 WHERE id = :id";
         $pdo->prepare($upd)->execute([
             ':attempts' => $attempts,
-            ':locked_until' => $lockedUntil,
+            ':locked_until' => $nextLockedUntil,
             ':id' => (int)$user['id'],
         ]);
 
-        return $lockedUntil ? 'locked' : 'invalid';
+        return $nextLockedUntil ? 'locked' : 'invalid';
     }
 
     $reset = "UPDATE users
@@ -186,11 +166,7 @@ function simulateResendAllowed(PDO $pdo, string $email): array
     return ['status' => 'ok', 'remaining' => null];
 }
 
-try {
-    $pdo = Database::pdo();
-} catch (Throwable $e) {
-    fail('Database connection failed: ' . $e->getMessage());
-}
+$pdo = getPdo();
 
 $pdo->beginTransaction();
 try {

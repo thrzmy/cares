@@ -1,36 +1,12 @@
 <?php
 declare(strict_types=1);
 
-// Simple smoke tests for account + student management.
-// Run: php scripts/acct_mang_test.php
+// Account + student management smoke tests.
+// Run: php scripts/tests/accounts/account_management_test.php
 
-require_once __DIR__ . '/../core/bootstrap.php';
+require_once __DIR__ . '/../_bootstrap.php';
 
-function ok(string $msg): void
-{
-    echo "[OK] {$msg}\n";
-}
-
-function fail(string $msg): void
-{
-    echo "[FAIL] {$msg}\n";
-    exit(1);
-}
-
-try {
-    $pdo = Database::pdo();
-} catch (Throwable $e) {
-    fail('Database connection failed: ' . $e->getMessage());
-}
-
-function expect(bool $condition, string $msg): void
-{
-    if ($condition) {
-        ok($msg);
-        return;
-    }
-    fail($msg);
-}
+$pdo = getPdo();
 
 // 1) Tables exist
 $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
@@ -199,8 +175,7 @@ try {
     if ($admittedFailed) {
         ok('Admitted student without ID number rejected (DB check)');
     } else {
-        // If CHECK is not enforced by the DB engine, treat as warning
-        echo "[WARN] Admitted student without ID number was inserted (CHECK not enforced)\n";
+        warn('Admitted student without ID number was inserted (CHECK not enforced)');
     }
 
     $dupFailed = false;
@@ -219,7 +194,7 @@ try {
     $pdo->rollBack();
 } catch (Throwable $e) {
     $pdo->rollBack();
-    fail('Transactional tests failed: ' . $e->getMessage());
+    fail('Account management tests failed: ' . $e->getMessage());
 }
 
-echo "Smoke tests passed.\n";
+echo "Account management tests passed.\n";
