@@ -931,6 +931,119 @@ final class AdmissionController
         ]);
     }
 
+    public static function profile(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        $st = Database::pdo()->prepare("SELECT id, name, email FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $userId]);
+        $user = $st->fetch();
+
+        View::render('admission/profile', [
+            'title' => 'My Profile',
+            'user' => $user,
+            'success' => flash('success'),
+            'error' => flash('error'),
+        ]);
+    }
+
+    public static function updateProfile(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('admission');
+
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        $name = trim((string)($_POST['name'] ?? ''));
+        $email = trim((string)($_POST['email'] ?? ''));
+
+        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', 'Please enter a valid name and email.');
+            redirect('/admission/profile');
+        }
+
+        $check = Database::pdo()->prepare("SELECT id FROM users WHERE email = :email AND id <> :id AND is_deleted = 0 LIMIT 1");
+        $check->execute([
+            ':email' => $email,
+            ':id' => $userId,
+        ]);
+        if ($check->fetch()) {
+            flash('error', 'Email is already in use by another account.');
+            redirect('/admission/profile');
+        }
+
+        Database::pdo()->prepare("UPDATE users SET name = :name, email = :email, updated_by = :updated_by WHERE id = :id AND is_deleted = 0")
+            ->execute([
+                ':name' => $name,
+                ':email' => $email,
+                ':updated_by' => $userId,
+                ':id' => $userId,
+            ]);
+
+        $_SESSION['name'] = $name;
+        Logger::log($userId, 'UPDATE_PROFILE', 'users', $userId, 'Admission updated profile');
+        flash('success', 'Profile updated.');
+        redirect('/admission/profile');
+    }
+
+    public static function updatePassword(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('admission');
+
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        $current = (string)($_POST['current_password'] ?? '');
+        $password = (string)($_POST['new_password'] ?? '');
+        $confirm = (string)($_POST['confirm_password'] ?? '');
+
+        if ($current === '' || $password === '' || $confirm === '') {
+            flash('error', 'Please complete all password fields.');
+            redirect('/admission/profile');
+        }
+
+        if (strlen($password) < 8) {
+            flash('error', 'New password must be at least 8 characters.');
+            redirect('/admission/profile');
+        }
+
+        if ($password !== $confirm) {
+            flash('error', 'New password confirmation does not match.');
+            redirect('/admission/profile');
+        }
+
+        $st = Database::pdo()->prepare("SELECT password FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st->execute([':id' => $userId]);
+        $row = $st->fetch();
+        if (!$row || !password_verify($current, (string)$row['password'])) {
+            flash('error', 'Current password is incorrect.');
+            redirect('/admission/profile');
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        Database::pdo()->prepare("UPDATE users SET password = :password, updated_by = :updated_by WHERE id = :id AND is_deleted = 0")
+            ->execute([
+                ':password' => $hash,
+                ':updated_by' => $userId,
+                ':id' => $userId,
+            ]);
+
+        Logger::log($userId, 'UPDATE_PASSWORD', 'users', $userId, 'Admission updated own password');
+        flash('success', 'Password updated.');
+        redirect('/admission/profile');
+    }
+
     private static function normalizeDateInput(string $value): string
     {
         if ($value === '') {

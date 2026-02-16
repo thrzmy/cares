@@ -90,6 +90,9 @@ declare(strict_types=1);
                                         <li>
                                             <a class="dropdown-item <?= e(isActive('/admission/logs')) ?>" href="<?= e(BASE_PATH) ?>/admission/logs">Activity Logs</a>
                                         </li>
+                                        <li>
+                                            <a class="dropdown-item <?= e(isActive('/admission/profile')) ?>" href="<?= e(BASE_PATH) ?>/admission/profile">My Profile</a>
+                                        </li>
                                     <?php endif; ?>
                                     <li>
                                         <hr class="dropdown-divider">
