@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 $logs = $logs ?? [];
 $actionList = $actionList ?? [];
-$entityList = $entityList ?? [];
 
 $badgeForAction = static function (string $action): string {
     if ($action === '') {
@@ -39,6 +38,10 @@ $badgeForAction = static function (string $action): string {
 $formatAction = static function (string $action): string {
     return ucwords(strtolower(str_replace('_', ' ', $action)));
 };
+
+$formatEntity = static function (string $entity): string {
+    return ucwords(strtolower(str_replace('_', ' ', $entity)));
+};
 ?>
 
 <div class="page-header mb-3">
@@ -55,7 +58,7 @@ $formatAction = static function (string $action): string {
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/logs">
   <div class="col-12 col-md-6">
     <label class="form-label small">Search Logs</label>
-    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by user, action, entity, or details">
+    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by user, record, or details">
   </div>
   <div class="col-12 col-md-3">
     <label class="form-label small">From Date</label>
@@ -66,23 +69,12 @@ $formatAction = static function (string $action): string {
     <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">Action Type</label>
+    <label class="form-label small">Action Filter</label>
     <select class="form-select" name="action">
       <option value="">All actions</option>
       <?php foreach ($actionList as $action): ?>
         <option value="<?= e((string)$action) ?>" <?= ($actionFilter ?? '') === $action ? 'selected' : '' ?>>
           <?= e($formatAction((string)$action)) ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-  <div class="col-12 col-md-3">
-    <label class="form-label small">Entity Type</label>
-    <select class="form-select" name="entity">
-      <option value="">All entities</option>
-      <?php foreach ($entityList as $entity): ?>
-        <option value="<?= e((string)$entity) ?>" <?= ($entityFilter ?? '') === $entity ? 'selected' : '' ?>>
-          <?= e(ucfirst((string)$entity)) ?>
         </option>
       <?php endforeach; ?>
     </select>
@@ -130,7 +122,7 @@ $formatAction = static function (string $action): string {
               <?php if ($entityName !== '' && ($entity === 'students' || $entity === 'users')): ?>
                 <?= e($entityName) ?>
               <?php else: ?>
-                <?= e($entity !== '' ? ucfirst($entity) : '-') ?>
+                <?= e($entity !== '' ? $formatEntity($entity) : '-') ?>
                 <?php if ($entityName !== ''): ?>
                   -  <?= e($entityName) ?>
                 <?php elseif ($entityId): ?>
@@ -194,7 +186,7 @@ $formatAction = static function (string $action): string {
                 <?php if ($entityName !== '' && ($entity === 'students' || $entity === 'users')): ?>
                   <?= e($entityName) ?>
                 <?php else: ?>
-                  <?= e($entity !== '' ? ucfirst($entity) : '-') ?>
+                  <?= e($entity !== '' ? $formatEntity($entity) : '-') ?>
                   <?php if ($entityName !== ''): ?>
                     -  <?= e($entityName) ?>
                   <?php elseif ($entityId): ?>

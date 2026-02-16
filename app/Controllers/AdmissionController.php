@@ -599,7 +599,6 @@ final class AdmissionController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $action = trim((string)($_GET['action'] ?? ''));
-        $entity = trim((string)($_GET['entity'] ?? ''));
         $startDate = trim((string)($_GET['start_date'] ?? ''));
         $endDate = trim((string)($_GET['end_date'] ?? ''));
         $page = max(1, (int)($_GET['page'] ?? 1));
@@ -609,15 +608,8 @@ final class AdmissionController
         $actionListSt->execute([':user_id' => $userId]);
         $actionList = $actionListSt->fetchAll(PDO::FETCH_COLUMN);
 
-        $entityListSt = Database::pdo()->prepare("SELECT DISTINCT entity FROM logs WHERE user_id = :user_id AND entity IS NOT NULL AND entity <> '' ORDER BY entity");
-        $entityListSt->execute([':user_id' => $userId]);
-        $entityList = $entityListSt->fetchAll(PDO::FETCH_COLUMN);
-
         if (!in_array($action, $actionList, true)) {
             $action = '';
-        }
-        if (!in_array($entity, $entityList, true)) {
-            $entity = '';
         }
         $startDate = self::normalizeDateInput($startDate);
         $endDate = self::normalizeDateInput($endDate);
@@ -629,13 +621,32 @@ final class AdmissionController
             $where .= " AND l.action = :action";
             $params[':action'] = $action;
         }
-        if ($entity !== '') {
-            $where .= " AND l.entity = :entity";
-            $params[':entity'] = $entity;
-        }
         if ($q !== '') {
-            $where .= " AND (l.action LIKE :q OR l.entity LIKE :q OR l.details LIKE :q)";
-            $params[':q'] = '%' . $q . '%';
+            $where .= " AND (
+                l.details LIKE :q_details OR
+                s.name LIKE :q_student_name OR
+                s.id_number LIKE :q_student_id_number OR
+                eu.name LIKE :q_entity_user_name OR
+                eu.email LIKE :q_entity_user_email OR
+                ses_student.name LIKE :q_score_student_name OR
+                ses_student.id_number LIKE :q_score_student_id_number OR
+                ses_part.name LIKE :q_score_part_name OR
+                wc.course_name LIKE :q_weight_course_name OR
+                wc.course_code LIKE :q_weight_course_code OR
+                wep.name LIKE :q_weight_part_name
+            )";
+            $like = '%' . $q . '%';
+            $params[':q_details'] = $like;
+            $params[':q_student_name'] = $like;
+            $params[':q_student_id_number'] = $like;
+            $params[':q_entity_user_name'] = $like;
+            $params[':q_entity_user_email'] = $like;
+            $params[':q_score_student_name'] = $like;
+            $params[':q_score_student_id_number'] = $like;
+            $params[':q_score_part_name'] = $like;
+            $params[':q_weight_course_name'] = $like;
+            $params[':q_weight_course_code'] = $like;
+            $params[':q_weight_part_name'] = $like;
         }
         if ($startDate !== '') {
             $where .= " AND l.created_at >= :start_date";
@@ -648,6 +659,22 @@ final class AdmissionController
 
         $countSql = "SELECT COUNT(*)
                      FROM logs l
+                     LEFT JOIN students s
+                        ON l.entity = 'students' AND s.id = l.entity_id
+                     LEFT JOIN users eu
+                        ON l.entity = 'users' AND eu.id = l.entity_id
+                     LEFT JOIN student_exam_scores ses
+                        ON l.entity = 'student_exam_scores' AND ses.id = l.entity_id
+                     LEFT JOIN students ses_student
+                        ON ses_student.id = ses.student_id
+                     LEFT JOIN exam_parts ses_part
+                        ON ses_part.id = ses.exam_part_id
+                     LEFT JOIN weights w
+                        ON l.entity = 'weights' AND w.id = l.entity_id
+                     LEFT JOIN courses wc
+                        ON wc.id = w.course_id
+                     LEFT JOIN exam_parts wep
+                        ON wep.id = w.exam_part_id
                      $where";
         $countSt = Database::pdo()->prepare($countSql);
         $countSt->execute($params);
@@ -667,14 +694,45 @@ final class AdmissionController
                        l.created_at,
                        u.name AS user_name,
                        u.email AS user_email,
-                       COALESCE(s.name, eu.name) AS entity_name,
-                       COALESCE(s.id_number, eu.email) AS entity_ref
+                       CASE
+                           WHEN l.entity = 'weights' AND l.entity_id IS NULL THEN 'Weights Matrix'
+                           WHEN l.entity = 'student_exam_scores' THEN ses_student.name
+                           ELSE COALESCE(s.name, eu.name, wc.course_name)
+                       END AS entity_name,
+                       CASE
+                           WHEN l.entity = 'student_exam_scores'
+                               THEN CONCAT(
+                                   COALESCE(ses_student.id_number, 'No ID'),
+                                   ' / ',
+                                   COALESCE(ses_part.name, 'Exam Part')
+                               )
+                           WHEN l.entity = 'weights' AND l.entity_id IS NULL THEN 'All courses'
+                           WHEN l.entity = 'weights'
+                               THEN CONCAT(
+                                   COALESCE(wc.course_code, 'Course'),
+                                   ' / ',
+                                   COALESCE(wep.name, 'Exam Part')
+                               )
+                           ELSE COALESCE(s.id_number, eu.email)
+                       END AS entity_ref
                 FROM logs l
                 LEFT JOIN users u ON u.id = l.user_id
                 LEFT JOIN students s
                     ON l.entity = 'students' AND s.id = l.entity_id
                 LEFT JOIN users eu
                     ON l.entity = 'users' AND eu.id = l.entity_id
+                LEFT JOIN student_exam_scores ses
+                    ON l.entity = 'student_exam_scores' AND ses.id = l.entity_id
+                LEFT JOIN students ses_student
+                    ON ses_student.id = ses.student_id
+                LEFT JOIN exam_parts ses_part
+                    ON ses_part.id = ses.exam_part_id
+                LEFT JOIN weights w
+                    ON l.entity = 'weights' AND w.id = l.entity_id
+                LEFT JOIN courses wc
+                    ON wc.id = w.course_id
+                LEFT JOIN exam_parts wep
+                    ON wep.id = w.exam_part_id
                 $where
                 ORDER BY l.created_at DESC
                 LIMIT :limit OFFSET :offset";
@@ -692,11 +750,9 @@ final class AdmissionController
             'logs' => $logs,
             'q' => $q,
             'actionFilter' => $action,
-            'entityFilter' => $entity,
             'startDate' => $startDate,
             'endDate' => $endDate,
             'actionList' => $actionList,
-            'entityList' => $entityList,
             'pagination' => [
                 'page' => $page,
                 'pages' => $pages,
@@ -708,7 +764,6 @@ final class AdmissionController
                 'query' => [
                     'q' => $q,
                     'action' => $action,
-                    'entity' => $entity,
                     'start_date' => $startDate,
                     'end_date' => $endDate,
                 ],

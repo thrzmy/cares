@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 $logs = $logs ?? [];
 $actionList = $actionList ?? [];
-$entityList = $entityList ?? [];
 
 $badgeForAction = static function (string $action): string {
     if ($action === '') {
@@ -39,6 +38,10 @@ $badgeForAction = static function (string $action): string {
 $formatAction = static function (string $action): string {
     return ucwords(strtolower(str_replace('_', ' ', $action)));
 };
+
+$formatEntity = static function (string $entity): string {
+    return ucwords(strtolower(str_replace('_', ' ', $entity)));
+};
 ?>
 
 <div class="page-header mb-3">
@@ -55,7 +58,7 @@ $formatAction = static function (string $action): string {
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/admission/logs">
   <div class="col-12 col-md-6">
     <label class="form-label small">Search Logs</label>
-    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by action, entity, or details">
+    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by record or details">
   </div>
   <div class="col-12 col-md-3">
     <label class="form-label small">From Date</label>
@@ -66,23 +69,12 @@ $formatAction = static function (string $action): string {
     <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
   </div>
   <div class="col-12 col-md-3">
-    <label class="form-label small">Action Type</label>
+    <label class="form-label small">Action Filter</label>
     <select class="form-select" name="action">
       <option value="">All actions</option>
       <?php foreach ($actionList as $action): ?>
         <option value="<?= e((string)$action) ?>" <?= ($actionFilter ?? '') === $action ? 'selected' : '' ?>>
           <?= e($formatAction((string)$action)) ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-  <div class="col-12 col-md-3">
-    <label class="form-label small">Entity Type</label>
-    <select class="form-select" name="entity">
-      <option value="">All entities</option>
-      <?php foreach ($entityList as $entity): ?>
-        <option value="<?= e((string)$entity) ?>" <?= ($entityFilter ?? '') === $entity ? 'selected' : '' ?>>
-          <?= e(ucfirst((string)$entity)) ?>
         </option>
       <?php endforeach; ?>
     </select>
@@ -97,12 +89,6 @@ $formatAction = static function (string $action): string {
   <div class="d-block d-md-none">
     <?php foreach ($logs as $log): ?>
       <?php
-      $userLabel = 'System';
-      if (!empty($log['user_name'])) {
-          $userLabel = (string)$log['user_name'];
-      } elseif (!empty($log['user_id'])) {
-          $userLabel = 'User #' . (int)$log['user_id'];
-      }
       $action = (string)($log['action'] ?? '');
       $entity = (string)($log['entity'] ?? '');
       $entityId = $log['entity_id'] ?? null;
@@ -112,25 +98,20 @@ $formatAction = static function (string $action): string {
       ?>
       <div class="card shadow-sm mb-3">
         <div class="card-body">
-          <div class="d-flex align-items-start justify-content-between gap-2">
-            <div>
-              <div class="fw-semibold"><?= e($userLabel) ?></div>
-              <?php if (!empty($log['user_email'])): ?>
-                <div class="text-muted small"><?= e((string)$log['user_email']) ?></div>
-              <?php endif; ?>
-            </div>
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+            <div class="text-muted small">Occurred: <?= e($createdAt) ?></div>
             <span class="badge <?= e($badgeForAction($action)) ?> text-uppercase">
               <?= e($formatAction($action)) ?>
             </span>
           </div>
 
-          <div class="mt-3 text-muted small">
+          <div class="text-muted small">
             <div>
               Record:
               <?php if ($entityName !== '' && ($entity === 'students' || $entity === 'users')): ?>
                 <?= e($entityName) ?>
               <?php else: ?>
-                <?= e($entity !== '' ? ucfirst($entity) : '-') ?>
+                <?= e($entity !== '' ? $formatEntity($entity) : '-') ?>
                 <?php if ($entityName !== ''): ?>
                   -  <?= e($entityName) ?>
                 <?php elseif ($entityId): ?>
@@ -141,7 +122,6 @@ $formatAction = static function (string $action): string {
                 <span class="text-muted">(<?= e($entityRef) ?>)</span>
               <?php endif; ?>
             </div>
-            <div>Occurred: <?= e($createdAt) ?></div>
             <div>Details: <?= e((string)($log['details'] ?? '-')) ?></div>
           </div>
         </div>
@@ -155,7 +135,6 @@ $formatAction = static function (string $action): string {
         <thead class="table-light">
           <tr>
             <th>Date/Time</th>
-            <th>User</th>
             <th>Action</th>
             <th>Record</th>
             <th>Details</th>
@@ -164,12 +143,6 @@ $formatAction = static function (string $action): string {
         <tbody>
           <?php foreach ($logs as $log): ?>
             <?php
-            $userLabel = 'System';
-            if (!empty($log['user_name'])) {
-                $userLabel = (string)$log['user_name'];
-            } elseif (!empty($log['user_id'])) {
-                $userLabel = 'User #' . (int)$log['user_id'];
-            }
             $action = (string)($log['action'] ?? '');
             $entity = (string)($log['entity'] ?? '');
             $entityId = $log['entity_id'] ?? null;
@@ -180,12 +153,6 @@ $formatAction = static function (string $action): string {
             <tr>
               <td class="text-muted small"><?= e($createdAt) ?></td>
               <td>
-                <div class="fw-semibold"><?= e($userLabel) ?></div>
-                <?php if (!empty($log['user_email'])): ?>
-                  <div class="text-muted small"><?= e((string)$log['user_email']) ?></div>
-                <?php endif; ?>
-              </td>
-              <td>
                 <span class="badge <?= e($badgeForAction($action)) ?> text-uppercase">
                   <?= e($formatAction($action)) ?>
                 </span>
@@ -194,7 +161,7 @@ $formatAction = static function (string $action): string {
                 <?php if ($entityName !== '' && ($entity === 'students' || $entity === 'users')): ?>
                   <?= e($entityName) ?>
                 <?php else: ?>
-                  <?= e($entity !== '' ? ucfirst($entity) : '-') ?>
+                  <?= e($entity !== '' ? $formatEntity($entity) : '-') ?>
                   <?php if ($entityName !== ''): ?>
                     -  <?= e($entityName) ?>
                   <?php elseif ($entityId): ?>
