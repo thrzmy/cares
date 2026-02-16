@@ -29,8 +29,6 @@ public/     Web entrypoint (document root)
 scripts/    Local test scripts
 ```
 
-For a concise entrypoint/script map, see `REPO_MAP.md`.
-
 ## Requirements
 
 - PHP 8.1+ with extensions:
@@ -154,29 +152,6 @@ Available scripts:
 
 `php scripts/run_tests.php` is also included as a wrapper runner.
 
-## Quality Checks
-
-- PHP syntax lint (all files):
-
-  ```bash
-  find . -name "*.php" -print0 | xargs -0 -n1 php -l
-  ```
-
-- Full local check:
-
-  ```bash
-  php scripts/run_tests.php
-  ```
-
-## CI
-
-This repository includes a minimal GitHub Actions workflow at `.github/workflows/ci.yml` that runs:
-
-1. MySQL service startup
-2. Database import (`schema.sql` then `seed.sql`)
-3. PHP syntax lint
-4. Test runner (`php scripts/run_tests.php`)
-
 ## Deployment Checklist
 
 1. Set production `.env` values:
@@ -208,4 +183,3 @@ This repository includes a minimal GitHub Actions workflow at `.github/workflows
 - Reset DB: re-import `database/schema.sql`, then `database/seed.sql`.
 - Change default account seeds: edit `database/schema.sql` and `database/seed.sql` before import.
 - Review auth/account flow: `app/Controllers/AuthController.php`, `app/Controllers/AccountsController.php`.
-- Track release readiness: `RELEASE_CHECKLIST.md`.
