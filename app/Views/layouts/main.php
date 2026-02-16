@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 // $title is available from View::render data
+$appCssPath = __DIR__ . '/../../../public/assets/app.css';
+$appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
 ?>
 <!doctype html>
 <html lang="en">
@@ -18,10 +20,10 @@ declare(strict_types=1);
 
     <!-- Bootstrap (capstone friendly) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<?= e(BASE_PATH) ?>/assets/app.css" rel="stylesheet">
+    <link href="<?= e(BASE_PATH) ?>/assets/app.css?v=<?= e($appCssVersion) ?>" rel="stylesheet">
 </head>
 
-<body class="bg-light app-body">
+<body class="bg-light app-body<?= !empty($_SESSION['user_id']) ? ' has-top-nav' : '' ?>">
 
     <?php if (!empty($_SESSION['user_id'])): ?>
     <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom app-nav">

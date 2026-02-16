@@ -41,11 +41,22 @@ a:hover {
 }
 
 .navbar.app-nav {
-  background: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
   border-bottom: 1px solid var(--cares-border);
-  backdrop-filter: blur(10px);
-  position: relative;
-  z-index: 1030;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 2000;
+  box-shadow: 0 6px 14px rgba(35, 18, 8, 0.08);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+body.has-top-nav {
+  padding-top: 72px;
 }
 
 .navbar-brand {
