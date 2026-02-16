@@ -1,19 +1,37 @@
 # CARES
 
-CARES is a lightweight PHP application for managing accounts, admission scoring, and admin workflows.
+CARES is a lightweight PHP application for admissions account management, student scoring, course recommendation and administrative workflows.
 
 ## Features
 
-- Role-based access for administrators and admission personnel
-- Student records and admission status tracking
-- Exam parts, weights, and scoring storage
-- Audit logs for key actions
-- Email verification and password reset support
+- Role-based access (`administrator`, `admission`)
+- Admission user registration with email verification
+- Admin account approval/rejection flow
+- Student profile and exam score management
+- Course Recommendation
+- Course/exam-weight matrix management
+- Password reset and forced password change support
+- Audit logs for major actions
+
+## Tech Stack
+
+- PHP 8.1+
+- MySQL 8+ / MariaDB 10.4+
+- Server-rendered PHP views (no required frontend build step)
+
+## Project Structure
+
+```text
+app/        Controllers, middleware, services, and views
+core/       Framework utilities (router, DB, env, helpers)
+database/   SQL schema and seed data
+public/     Web entrypoint (document root)
+scripts/    Local test scripts
+```
 
 ## Requirements
 
-- Windows, macOS, or Linux
-- PHP 8.1+ with the following extensions enabled:
+- PHP 8.1+ with extensions:
   - `pdo`
   - `pdo_mysql`
   - `mbstring`
@@ -21,111 +39,147 @@ CARES is a lightweight PHP application for managing accounts, admission scoring,
   - `curl`
   - `json`
 - MySQL 8+ or MariaDB 10.4+
-- Composer (optional; not required to run the app as currently structured)
+- XAMPP/WAMP/LAMP (or any PHP-capable web server)
 
-## Project Structure
+## Local Setup (Recommended)
 
-```
-app/        Application controllers, middleware, and services
-core/       Framework utilities (routing, DB, env loader)
-database/   SQL schema and seed data
-public/     Public web entrypoint
-scripts/    Developer utilities/tests
-```
+1. Clone/copy the project to your web root (example: `C:\xampp\htdocs\cares`).
+2. Copy env template:
 
-## Setup (Local)
+   PowerShell:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
 
-1. Clone or copy the project to your web root.
-2. Copy the environment template and update values for your machine:
-
+   Bash:
    ```bash
    cp .env.example .env
    ```
 
-3. Update `.env` with your database and base URL settings:
+3. Update `.env` values for your environment (see [Environment Variables](#environment-variables)).
+4. Create database (example: `cares`).
+5. Import SQL files in this exact order:
 
-   - `DB_HOST`
-   - `DB_PORT`
-   - `DB_DATABASE`
-   - `DB_USERNAME`
-   - `DB_PASSWORD`
-   - `APP_URL`
-   - `BASE_PATH` (if hosted in a subfolder)
+   1. `database/schema.sql`
+   2. `database/seed.sql`
 
-4. Create the database in MySQL.
-5. Import the schema, then the seed data:
-
-   ```sql
-   -- schema
-   database/schema.sql
-
-   -- seed data
-   database/seed.sql
-   ```
-
-6. Start the PHP built-in server from the repo root:
+6. Start app from repo root:
 
    ```bash
    php -S localhost:8000 -t public
    ```
 
-7. Visit `http://localhost:8000`.
+7. Open:
+
+   `http://localhost:8000`
+
+If hosted in a subfolder (example `http://localhost/cares/public`), set `BASE_PATH` properly in `.env`.
+
+## Environment Variables
+
+All config values are loaded from `.env` at runtime.
+
+```env
+APP_URL="http://localhost:8000"
+APP_NAME="CAReS"
+BASE_PATH=""
+APP_TIMEZONE="Asia/Manila"
+
+DB_HOST="127.0.0.1"
+DB_NAME="cares"
+DB_USER="root"
+DB_PASS=""
+DB_CHARSET="utf8mb4"
+
+APP_DEBUG="true"
+
+BREVO_API_KEY=""
+MAIL_FROM_EMAIL="no-reply@cares.local"
+MAIL_FROM_NAME="CAReS"
+EMAIL_VERIFICATION_TTL_MINUTES="15"
+EMAIL_VERIFICATION_RESEND_SECONDS="60"
+```
+
+### Variable Notes
+
+- `APP_URL`: public base URL of the app.
+- `BASE_PATH`: leave empty if app is served at domain root; set to subpath if needed (example: `/cares`).
+- `APP_DEBUG`: use `false` in production.
+- `MAIL_FROM_EMAIL`: must be a sender verified in Brevo for real email sending.
 
 ## Default Accounts
 
-- Administrator (created by schema import)
+Created by SQL imports:
+
+- Administrator
   - Email: `admin@cares.local`
   - Password: `123456789`
-- Admission users (created by seed import)
-  - See `database/seed.sql` for sample accounts
+- Admission sample user
+  - Email: `admission@cares.local`
+  - Password: `123456789`
 
-If you want to change credentials, update the inserts in `database/schema.sql` and `database/seed.sql`.
+You can update these in `database/schema.sql` and `database/seed.sql` before importing.
 
-## Database Files
+## Email Setup (Brevo) - Client Handoff
 
-- Schema: `database/schema.sql`
-- Seed data: `database/seed.sql`
+Use this section when onboarding a client domain/email.
 
-Import the schema first, then the seed data. The schema inserts the default admin account, while the seed file inserts admission users.
+1. Create client Brevo account: `https://www.brevo.com/`
+2. Generate API key in Brevo (`SMTP & API` -> `API Keys`).
+3. Update `.env`:
 
-## Configuration
+   ```env
+   BREVO_API_KEY="your_brevo_api_key_here"
+   MAIL_FROM_EMAIL="verified_sender@clientdomain.com" #registered email if free version
+   MAIL_FROM_NAME="CAReS"
+   ```
 
-All application configuration values live in `.env` and are loaded at runtime. The application falls back to sensible defaults if the file is missing.
+4. Restart PHP/web server.
+5. Test registration email verification and password reset.
+
+### Important
+
+- `MAIL_FROM_EMAIL` must match a Brevo-verified sender.
+- Local/demo addresses like `@cares.local` are not valid real senders.
+- If `BREVO_API_KEY` is empty/invalid, app uses dev fallback and shows verification code in UI flash messages.
 
 ## Running Tests
 
-Run the smoke tests for account and student management:
+Available scripts:
 
-```bash
-php scripts/smoke_test.php
-```
+- `php scripts/acct_mang_test.php`
+- `php scripts/auth_test.php`
 
-Run the authentication tests:
+`php scripts/run_tests.php` is also included as a wrapper runner.
 
-```bash
-php scripts/auth_test.php
-```
+## Deployment Checklist
 
-Run all tests:
-
-```bash
-php scripts/run_tests.php
-```
-
-## Common Tasks
-
-- Reset database: re-import `database/schema.sql` then `database/seed.sql`
-- Change logo or branding: check `public/assets/` and view files in `app/Views/`
-- Update weights or exam parts: edit seed data or manage via the app UI
-
-## Deployment Notes
-
-- Set `APP_URL` and `BASE_PATH` correctly for the deployed location.
-- Ensure the web server points to the `public/` directory as the document root.
-- Configure PHP sessions and file permissions according to your server.
+1. Set production `.env` values:
+   - `APP_URL`
+   - `BASE_PATH` (if applicable)
+   - `APP_DEBUG="false"`
+   - DB credentials
+   - Brevo mail settings
+2. Point web server document root to `public/`.
+3. Use HTTPS in production.
+4. Ensure PHP session and file permissions are correctly configured.
+5. Re-test login, registration, verify-email, and password reset flows.
 
 ## Troubleshooting
 
-- Blank page or 500 errors: check PHP error logs and ensure required extensions are enabled.
-- Database connection issues: verify `.env` values and MySQL credentials.
-- Emails not sending: set `BREVO_API_KEY` in `.env`.
+- Blank page / 500 errors:
+  - enable PHP error logs and check web server logs.
+  - verify required PHP extensions are enabled.
+- Database connection issues:
+  - confirm `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS` in `.env`.
+- Route/path issues under subfolder:
+  - set correct `BASE_PATH` (example: `/cares`).
+- Email not sending:
+  - verify `BREVO_API_KEY` is valid.
+  - ensure `MAIL_FROM_EMAIL` is verified in Brevo.
+
+## Common Maintenance Tasks
+
+- Reset DB: re-import `database/schema.sql`, then `database/seed.sql`.
+- Change default account seeds: edit `database/schema.sql` and `database/seed.sql` before import.
+- Review auth/account flow: `app/Controllers/AuthController.php`, `app/Controllers/AccountsController.php`.
