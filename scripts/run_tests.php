@@ -5,7 +5,7 @@ declare(strict_types=1);
 // Run: php scripts/run_tests.php
 
 $tests = [
-    __DIR__ . '/smoke_test.php',
+    __DIR__ . '/acct_mang_test.php',
     __DIR__ . '/auth_test.php',
 ];
 
