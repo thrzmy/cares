@@ -63,7 +63,7 @@ declare(strict_types=1);
                                             <a class="dropdown-item <?= e(isActive('/administrator/reports')) ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">System Reports</a>
                                         </li>
                                         <li>
-                                            <a class="dropdown-item <?= e(isActive('/administrator/logs')) ?>" href="<?= e(BASE_PATH) ?>/administrator/logs">Monitor Logs</a>
+                                            <a class="dropdown-item <?= e(isActive('/administrator/logs')) ?>" href="<?= e(BASE_PATH) ?>/administrator/logs">Activity Logs</a>
                                         </li>
                                         <li>
                                             <hr class="dropdown-divider">

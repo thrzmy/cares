@@ -354,7 +354,7 @@ final class AdminController
         $logs = $st->fetchAll();
 
         View::render('admin/logs', [
-            'title' => 'Monitor Logs',
+            'title' => 'Activity Logs',
             'logs' => $logs,
             'q' => $q,
             'actionFilter' => $action,
