@@ -15,7 +15,7 @@ declare(strict_types=1);
 
 <div class="row g-3">
   <div class="col-12 col-lg-6">
-    <div class="card shadow-sm content-card">
+    <div class="card shadow-sm">
       <div class="card-body">
         <div>
           <h5 class="fw-bold mb-1">Account Details</h5>
@@ -47,7 +47,7 @@ declare(strict_types=1);
   </div>
 
   <div class="col-12 col-lg-6">
-    <div class="card shadow-sm content-card">
+    <div class="card shadow-sm">
       <div class="card-body">
         <h5 class="fw-bold mb-1">Change Password</h5>
         <p class="text-muted mb-3">Use a strong password (at least 8 characters).</p>

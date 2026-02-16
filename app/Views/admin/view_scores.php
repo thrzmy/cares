@@ -12,7 +12,7 @@ declare(strict_types=1);
   </div>
 </div>
 
-<div class="card shadow-sm content-card">
+<div class="card shadow-sm">
   <div class="card-body">
     <?php if (!empty($parts)): ?>
       <div class="table-responsive">

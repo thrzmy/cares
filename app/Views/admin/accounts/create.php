@@ -15,7 +15,7 @@ $success = flash('success');
   </div>
 </div>
 
-<div class="card shadow-sm content-card">
+<div class="card shadow-sm">
   <div class="card-body">
 
     <?php if (!empty($success)): ?>

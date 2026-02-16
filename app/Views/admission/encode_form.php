@@ -37,7 +37,7 @@ $requiredAttr = $isView ? '' : 'required';
   <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
-<div class="card shadow-sm content-card mb-3">
+<div class="card shadow-sm mb-3">
   <div class="card-body">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
       <div>
@@ -52,7 +52,7 @@ $requiredAttr = $isView ? '' : 'required';
 </div>
 
 <?php if ($isView): ?>
-  <div class="card shadow-sm content-card mb-3">
+  <div class="card shadow-sm mb-3">
     <div class="card-body">
       <h6 class="fw-bold mb-2">Top Course Recommendations</h6>
       <?php if (!empty($recommendations)): ?>
@@ -77,7 +77,7 @@ $requiredAttr = $isView ? '' : 'required';
     <input type="hidden" name="id" value="<?= (int)$student['id'] ?>">
     <input type="hidden" name="mode" value="<?= e($mode) ?>">
 
-    <div class="card shadow-sm content-card">
+    <div class="card shadow-sm">
       <div class="card-body">
         <div class="row g-3">
           <?php foreach ($parts as $part): ?>
