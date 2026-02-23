@@ -266,7 +266,8 @@ body.has-top-nav {
   border-radius: 12px;
   border: 1px solid var(--cares-border);
   background: var(--cares-card);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .table-light {
