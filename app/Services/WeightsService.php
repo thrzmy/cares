@@ -64,12 +64,21 @@ final class WeightsService
      * Upsert matrix weights.
      * $matrix format: [courseId][examPartId] => weightString
      */
-    public static function saveMatrix(array $matrix, int $userId): void
+    public static function saveMatrix(array $matrix, int $userId): bool
     {
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
         try {
+            $existingRows = $pdo->query("SELECT course_id, exam_part_id, weight, is_deleted FROM weights")->fetchAll();
+            $existingMap = [];
+            foreach ($existingRows as $row) {
+                $existingMap[(int)$row['course_id']][(int)$row['exam_part_id']] = [
+                    'weight' => (float)$row['weight'],
+                    'is_deleted' => (int)$row['is_deleted'],
+                ];
+            }
+
             $sql = "INSERT INTO weights (course_id, exam_part_id, weight, created_by, updated_by)
                     VALUES (:course_id, :exam_part_id, :weight, :created_by, :updated_by)
                     ON DUPLICATE KEY UPDATE
@@ -82,6 +91,7 @@ final class WeightsService
 
 
             $stmt = $pdo->prepare($sql);
+            $hasChanges = false;
 
             foreach ($matrix as $courseId => $parts) {
                 foreach ($parts as $examPartId => $weightRaw) {
@@ -104,18 +114,27 @@ final class WeightsService
                         throw new RuntimeException("Weight out of range (0-100) for course {$courseId}, part {$examPartId}");
                     }
 
+                    $courseKey = (int)$courseId;
+                    $partKey = (int)$examPartId;
+                    $existing = $existingMap[$courseKey][$partKey] ?? null;
+                    if ($existing !== null && (int)$existing['is_deleted'] === 0 && abs(((float)$existing['weight']) - $weight) < 0.00001) {
+                        continue;
+                    }
+
                     $stmt->execute([
-                        ':course_id'   => (int)$courseId,
-                        ':exam_part_id'=> (int)$examPartId,
+                        ':course_id'   => $courseKey,
+                        ':exam_part_id'=> $partKey,
                         ':weight'      => $weight,
                         ':created_by'  => $userId,
                         ':updated_by'  => $userId,
                         ':updated_by2' => $userId,
                     ]);
+                    $hasChanges = true;
                 }
             }
 
             $pdo->commit();
+            return $hasChanges;
         } catch (Throwable $e) {
             $pdo->rollBack();
             throw $e;

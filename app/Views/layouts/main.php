@@ -116,6 +116,35 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      document.querySelectorAll('input[type="password"]').forEach((input, index) => {
+        if (input.dataset.passwordToggleInitialized === '1') {
+          return;
+        }
+        input.dataset.passwordToggleInitialized = '1';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form-check mt-1';
+
+        const toggle = document.createElement('input');
+        toggle.className = 'form-check-input';
+        toggle.type = 'checkbox';
+        toggle.id = `pw-toggle-${index}`;
+
+        const label = document.createElement('label');
+        label.className = 'form-check-label small';
+        label.setAttribute('for', toggle.id);
+        label.textContent = 'Show password';
+
+        toggle.addEventListener('change', () => {
+          input.type = toggle.checked ? 'text' : 'password';
+        });
+
+        wrapper.appendChild(toggle);
+        wrapper.appendChild(label);
+        input.insertAdjacentElement('afterend', wrapper);
+      });
+    </script>
 </body>
 
 </html>

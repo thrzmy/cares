@@ -14,10 +14,10 @@ $requiredAttr = $isView ? '' : 'required';
     <div class="page-kicker">Admission</div>
     <?php if ($isView): ?>
       <h4 class="fw-bold mb-1">Results Preview</h4>
-      <p class="page-subtitle">Scores are recorded. Review the top course recommendations.</p>
+      <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
     <?php else: ?>
       <h4 class="fw-bold mb-1">Encode Test Results</h4>
-      <p class="page-subtitle">Record scores per exam part for this student.</p>
+      <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
     <?php endif; ?>
   </div>
   <div class="page-actions">
@@ -37,31 +37,32 @@ $requiredAttr = $isView ? '' : 'required';
   <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-      <div>
-        <div class="fw-semibold"><?= e($student['name']) ?></div>
-        <div class="text-muted small"><?= e($student['email']) ?></div>
-      </div>
-      <div class="text-muted small">
-        ID Number: <?= e((string)($student['id_number'] ?? 'Not set')) ?>
-      </div>
-    </div>
-  </div>
-</div>
-
 <?php if ($isView): ?>
   <div class="card shadow-sm mb-3">
     <div class="card-body">
-      <h6 class="fw-bold mb-2">Top Course Recommendations</h6>
+      <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+        <h6 class="fw-bold mb-0">Top Course Recommendations</h6>
+        <span class="badge text-bg-light border"><?= e((string)count($recommendations)) ?> item(s)</span>
+      </div>
       <?php if (!empty($recommendations)): ?>
-        <?php foreach ($recommendations as $rec): ?>
-          <div class="d-flex justify-content-between small">
-            <span><?= e((string)$rec['course_code']) ?> - <?= e((string)$rec['course_name']) ?></span>
-            <span class="text-muted"><?= e(number_format((float)$rec['total_score'], 2)) ?></span>
-          </div>
-        <?php endforeach; ?>
+        <div class="d-flex flex-column gap-2">
+          <?php foreach ($recommendations as $index => $rec): ?>
+            <div class="border rounded-3 px-3 py-2">
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge text-bg-secondary"><?= e((string)($index + 1)) ?></span>
+                  <div>
+                    <div class="fw-semibold"><?= e((string)$rec['course_code']) ?></div>
+                    <div class="text-muted small"><?= e((string)$rec['course_name']) ?></div>
+                  </div>
+                </div>
+                <span class="badge" style="background: rgba(111,17,25,0.10); color: var(--cares-maroon); border: 1px solid rgba(111,17,25,0.18);">
+                  <?= e(number_format((float)$rec['total_score'], 2)) ?>%
+                </span>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
       <?php else: ?>
         <div class="text-muted small">No recommendations available yet.</div>
       <?php endif; ?>
@@ -79,6 +80,9 @@ $requiredAttr = $isView ? '' : 'required';
 
     <div class="card shadow-sm">
       <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+          <h6 class="fw-bold mb-0"><?= $isView ? 'Recorded Scores' : 'Enter Scores by Exam Part' ?></h6>
+        </div>
         <div class="row g-3">
           <?php foreach ($parts as $part): ?>
             <?php

@@ -10,8 +10,26 @@ $badgeForAction = static function (string $action): string {
     }
 
     $upper = strtoupper($action);
+    if (str_contains($upper, 'ARCHIVE_ACCOUNT')) {
+        return 'badge-log-archive-account';
+    }
+    if (str_contains($upper, 'RESTORE_ACCOUNT')) {
+        return 'badge-log-restore-account';
+    }
+    if (str_contains($upper, 'ARCHIVE_STUDENT')) {
+        return 'badge-log-archive-student';
+    }
+    if (str_contains($upper, 'RESTORE_STUDENT')) {
+        return 'badge-log-restore-student';
+    }
     if (str_contains($upper, 'DELETE') || str_contains($upper, 'REJECT')) {
         return 'text-bg-danger';
+    }
+    if (str_contains($upper, 'ARCHIVE')) {
+        return 'text-bg-dark';
+    }
+    if (str_contains($upper, 'RESTORE')) {
+        return 'text-bg-info';
     }
     if (str_contains($upper, 'CREATE') || str_contains($upper, 'REGISTER') || str_contains($upper, 'ENCODE')) {
         return 'text-bg-success';
@@ -55,33 +73,39 @@ $formatEntity = static function (string $entity): string {
   </div>
 </div>
 
-<form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/logs">
-  <div class="col-12 col-md-6">
-    <label class="form-label small">Search Logs</label>
-    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by user, record, or details">
+<form class="mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/logs">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-lg-5">
+      <label class="form-label small">Search Logs</label>
+      <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by user, record, or details">
+    </div>
+    <div class="col-12 col-md-4 col-lg-2">
+      <label class="form-label small">From Date</label>
+      <input class="form-control" type="date" name="start_date" value="<?= e((string)($startDate ?? '')) ?>">
+    </div>
+    <div class="col-12 col-md-4 col-lg-2">
+      <label class="form-label small">To Date</label>
+      <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
+    </div>
+    <div class="col-12 col-md-4 col-lg-3">
+      <label class="form-label small">Action Filter</label>
+      <select class="form-select" name="action">
+        <option value="">All actions</option>
+        <?php foreach ($actionList as $action): ?>
+          <option value="<?= e((string)$action) ?>" <?= ($actionFilter ?? '') === $action ? 'selected' : '' ?>>
+            <?= e($formatAction((string)$action)) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </div>
   </div>
-  <div class="col-12 col-md-3">
-    <label class="form-label small">From Date</label>
-    <input class="form-control" type="date" name="start_date" value="<?= e((string)($startDate ?? '')) ?>">
-  </div>
-  <div class="col-12 col-md-3">
-    <label class="form-label small">To Date</label>
-    <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
-  </div>
-  <div class="col-12 col-md-3">
-    <label class="form-label small">Action Filter</label>
-    <select class="form-select" name="action">
-      <option value="">All actions</option>
-      <?php foreach ($actionList as $action): ?>
-        <option value="<?= e((string)$action) ?>" <?= ($actionFilter ?? '') === $action ? 'selected' : '' ?>>
-          <?= e($formatAction((string)$action)) ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-  <div class="col-12 col-md-12 d-grid d-md-flex justify-content-end gap-2">
-    <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/logs">Clear Filters</a>
-    <button class="btn btn-outline-primary" type="submit">Apply Filters</button>
+  <div class="row g-2 mt-1">
+    <div class="col-12">
+      <div class="d-grid d-md-flex justify-content-md-end gap-2">
+        <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/logs">Clear Filters</a>
+        <button class="btn btn-primary" type="submit">Apply Filters</button>
+      </div>
+    </div>
   </div>
 </form>
 

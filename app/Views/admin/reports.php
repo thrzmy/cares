@@ -8,6 +8,21 @@ $studentStatusCounts = $studentStatusCounts ?? [];
 $examParts = $examParts ?? [];
 $topRecommendations = $topRecommendations ?? [];
 $topActions = $topActions ?? [];
+$sortedExamParts = $examParts;
+usort($sortedExamParts, static function (array $a, array $b): int {
+    $aAvg = $a['avg_score'] !== null ? (float)$a['avg_score'] : null;
+    $bAvg = $b['avg_score'] !== null ? (float)$b['avg_score'] : null;
+    if ($aAvg === null && $bAvg === null) {
+        return strcmp((string)$a['name'], (string)$b['name']);
+    }
+    if ($aAvg === null) {
+        return 1;
+    }
+    if ($bAvg === null) {
+        return -1;
+    }
+    return $bAvg <=> $aAvg;
+});
 
 $now = new DateTimeImmutable('now', new DateTimeZone(APP_TIMEZONE));
 $today = $now->format('Y-m-d');
@@ -36,20 +51,31 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
   </div>
 </div>
 
-<form class="row g-3 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/reports">
-  <div class="col-12 col-md-4 col-lg-3">
-    <label class="form-label small">Start Date</label>
-    <input class="form-control" type="date" name="start_date" value="<?= e((string)($startDate ?? '')) ?>">
+<form class="mb-3" method="get" action="<?= e(BASE_PATH) ?>/administrator/reports">
+  <div class="row g-3 align-items-end">
+    <div class="col-12 col-md-6 col-lg-4">
+      <label class="form-label small">Start Date</label>
+      <input class="form-control" type="date" name="start_date" value="<?= e((string)($startDate ?? '')) ?>">
+    </div>
+    <div class="col-12 col-md-6 col-lg-4">
+      <label class="form-label small">End Date</label>
+      <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
+    </div>
+    <div class="col-12 col-lg-4">
+      <label class="form-label small d-none d-lg-block">&nbsp;</label>
+      <div class="d-grid d-md-flex gap-2 justify-content-md-end">
+        <a class="btn btn-outline-secondary btn-sm <?= $activePreset === 'week' ? 'active' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports?start_date=<?= e($weekStart) ?>&end_date=<?= e($today) ?>">This Week</a>
+        <a class="btn btn-outline-secondary btn-sm <?= $activePreset === 'month' ? 'active' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports?start_date=<?= e($monthStart) ?>&end_date=<?= e($today) ?>">This Month</a>
+        <a class="btn btn-outline-secondary btn-sm <?= $activePreset === 'year' ? 'active' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports?start_date=<?= e($yearStart) ?>&end_date=<?= e($today) ?>">This Year</a>
+      </div>
+    </div>
   </div>
-  <div class="col-12 col-md-4 col-lg-3">
-    <label class="form-label small">End Date</label>
-    <input class="form-control" type="date" name="end_date" value="<?= e((string)($endDate ?? '')) ?>">
-  </div>
-  <div class="col-12 col-md-4 col-lg-6">
-    <label class="form-label small d-none d-md-block">&nbsp;</label>
-    <div class="d-grid d-md-flex justify-content-md-end gap-2">
-      <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/reports">Clear Filters</a>
-      <button class="btn btn-outline-primary" type="submit">Apply Filters</button>
+  <div class="row g-2 mt-1">
+    <div class="col-12">
+      <div class="d-grid d-md-flex justify-content-md-end gap-2">
+          <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/reports">Clear Filters</a>
+          <button class="btn btn-primary" type="submit">Apply Filters</button>
+      </div>
     </div>
   </div>
 </form>
@@ -57,11 +83,6 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
   <div class="text-muted small">
     Reporting period: <span class="fw-semibold"><?= e((string)($periodLabel ?? 'All time')) ?></span>
-  </div>
-  <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-outline-secondary btn-sm <?= $activePreset === 'week' ? 'active' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports?start_date=<?= e($weekStart) ?>&end_date=<?= e($today) ?>">This Week</a>
-    <a class="btn btn-outline-secondary btn-sm <?= $activePreset === 'month' ? 'active' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports?start_date=<?= e($monthStart) ?>&end_date=<?= e($today) ?>">This Month</a>
-    <a class="btn btn-outline-secondary btn-sm <?= $activePreset === 'year' ? 'active' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports?start_date=<?= e($yearStart) ?>&end_date=<?= e($today) ?>">This Year</a>
   </div>
 </div>
 
@@ -206,110 +227,70 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
   <div class="col-12 col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <h6 class="fw-bold mb-2">Exam Part Performance</h6>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Exam Part</th>
-                <th class="text-end">Max</th>
-                <th class="text-end">Entries</th>
-                <th class="text-end">Average Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php if (!empty($examParts)): ?>
-                <?php foreach ($examParts as $row): ?>
-                  <tr>
-                    <td><?= e((string)$row['name']) ?></td>
-                    <td class="text-end"><?= e(number_format((float)$row['max_score'], 0)) ?></td>
-                    <td class="text-end"><?= e((string)$row['entries']) ?></td>
-                    <td class="text-end">
-                      <?= $row['avg_score'] !== null ? e(number_format((float)$row['avg_score'], 2)) : '-' ?>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
-              <?php else: ?>
-                <tr>
-                  <td colspan="4" class="text-muted small">No data available.</td>
-                </tr>
-              <?php endif; ?>
-            </tbody>
-          </table>
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+          <h6 class="fw-bold mb-0">Course Recommendation Summary</h6>
+          <span class="badge text-bg-light border"><?= e((string)count($topRecommendations)) ?> course(s)</span>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-12 col-lg-6">
-    <div class="card shadow-sm h-100">
-      <div class="card-body">
-        <h6 class="fw-bold mb-2">Top Recommended Courses</h6>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Course</th>
-                <th class="text-end">Students</th>
-                <th class="text-end">Average Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php if (!empty($topRecommendations)): ?>
-                <?php foreach ($topRecommendations as $row): ?>
-                  <tr>
-                    <td>
+        <?php if (!empty($topRecommendations)): ?>
+          <div class="d-flex flex-column gap-2">
+            <?php foreach ($topRecommendations as $rowIndex => $row): ?>
+              <div class="rounded-3 px-3 py-2 <?= (int)$rowIndex === 0 ? '' : 'border' ?>" style="<?= (int)$rowIndex === 0 ? 'background: rgba(111,17,25,0.04); border: 1px solid rgba(111,17,25,0.14); border-left: 4px solid var(--cares-maroon);' : '' ?>">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div>
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="badge text-bg-secondary"><?= e((string)($rowIndex + 1)) ?></span>
                       <div class="fw-semibold"><?= e((string)$row['course_code']) ?></div>
-                      <div class="text-muted small"><?= e((string)$row['course_name']) ?></div>
-                    </td>
-                    <td class="text-end"><?= e((string)$row['student_count']) ?></td>
-                    <td class="text-end">
+                    </div>
+                    <div class="text-muted small mt-1"><?= e((string)$row['course_name']) ?></div>
+                    <div class="text-muted small"># of Students: <?= e((string)$row['student_count']) ?></div>
+                  </div>
+                  <div class="text-end">
+                    <div class="small text-muted">Average Score</div>
+                    <span class="badge" style="background: rgba(111,17,25,0.10); color: var(--cares-maroon); border: 1px solid rgba(111,17,25,0.18);">
                       <?= $row['avg_score'] !== null ? e(number_format((float)$row['avg_score'], 2)) : '-' ?>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
-              <?php else: ?>
-                <tr>
-                  <td colspan="3" class="text-muted small">No recommendation data available.</td>
-                </tr>
-              <?php endif; ?>
-            </tbody>
-          </table>
-        </div>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="text-muted small">No course recommendation data available.</div>
+        <?php endif; ?>
       </div>
     </div>
   </div>
-</div>
 
-<div class="row g-3 mt-0">
   <div class="col-12 col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <h6 class="fw-bold mb-2">Top Activity Types</h6>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Action</th>
-                <th class="text-end">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php if (!empty($topActions)): ?>
-                <?php foreach ($topActions as $row): ?>
-                  <tr>
-                    <td><?= e(ucwords(strtolower(str_replace('_', ' ', (string)$row['action'])))) ?></td>
-                    <td class="text-end"><?= e((string)$row['total']) ?></td>
-                  </tr>
-                <?php endforeach; ?>
-              <?php else: ?>
-                <tr>
-                  <td colspan="2" class="text-muted small">No activity data available.</td>
-                </tr>
-              <?php endif; ?>
-            </tbody>
-          </table>
-        </div>
+        <h6 class="fw-bold mb-2">Exam Part Performance</h6>
+        <?php if (!empty($sortedExamParts)): ?>
+          <div class="d-flex flex-column gap-2">
+            <?php foreach ($sortedExamParts as $row): ?>
+              <div class="border rounded-3 px-3 py-2">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div>
+                    <div class="fw-semibold"><?= e((string)$row['name']) ?></div>
+                    <div class="text-muted small">
+                      Max: <?= e(number_format((float)$row['max_score'], 0)) ?>
+                      <span class="mx-1">•</span>
+                      Entries: <?= e((string)$row['entries']) ?>
+                    </div>
+                  </div>
+                  <div class="text-end">
+                    <div class="small text-muted">Average Score</div>
+                    <span class="badge text-bg-light border">
+                      <?= $row['avg_score'] !== null ? e(number_format((float)$row['avg_score'], 2)) : '-' ?>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php else: ?>
+          <div class="text-muted small">No data available.</div>
+        <?php endif; ?>
       </div>
     </div>
   </div>

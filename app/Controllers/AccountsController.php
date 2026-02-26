@@ -8,27 +8,49 @@ final class AccountsController
         $q = trim((string)($_GET['q'] ?? ''));
         $role = trim((string)($_GET['role'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $access = trim((string)($_GET['access'] ?? 'active'));
+        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
-        $where = "WHERE u.is_deleted = 0";
+        if ($recordScope === 'archived') {
+            $where = "WHERE u.is_deleted = 1";
+        } elseif ($recordScope === 'all') {
+            $where = "WHERE 1=1";
+        } else {
+            $recordScope = 'active';
+            $where = "WHERE u.is_deleted = 0";
+        }
+        if (($recordScope === 'archived' || $recordScope === 'all') && !isset($_GET['access'])) {
+            $access = 'all';
+        }
         $params = [];
 
         if ($q !== '') {
-            $where .= " AND (name LIKE :q OR email LIKE :q OR id_number LIKE :q)";
-            $params[':q'] = '%' . $q . '%';
+            $like = '%' . $q . '%';
+            $where .= " AND (u.name LIKE :q_name OR u.email LIKE :q_email)";
+            $params[':q_name'] = $like;
+            $params[':q_email'] = $like;
         }
 
         if (in_array($role, ['administrator', 'admission'], true)) {
-            $where .= " AND role = :role";
+            $where .= " AND u.role = :role";
             $params[':role'] = $role;
         }
 
         $where .= " AND u.role IN ('administrator', 'admission')";
 
         if (in_array($status, ['pending', 'verified', 'rejected'], true)) {
-            $where .= " AND account_status = :status";
+            $where .= " AND u.account_status = :status";
             $params[':status'] = $status;
+        }
+        if ($access === '' || $access === 'all') {
+            $access = 'all';
+        } elseif ($access === 'disabled') {
+            $where .= " AND u.is_active = 0";
+        } else {
+            $access = 'active';
+            $where .= " AND u.is_active = 1";
         }
 
         $countSql = "SELECT COUNT(*)
@@ -47,6 +69,8 @@ final class AccountsController
                        u.name,
                        u.email,
                        u.role,
+                       u.is_deleted,
+                       u.deleted_at,
                        u.account_status,
                        u.rejection_reason,
                        u.is_active,
@@ -54,10 +78,12 @@ final class AccountsController
                        u.verified_at,
                        u.rejected_at,
                        v.name AS verified_by_name,
-                       r.name AS rejected_by_name
+                       r.name AS rejected_by_name,
+                       d.name AS deleted_by_name
                 FROM users u
                 LEFT JOIN users v ON v.id = u.verified_by
                 LEFT JOIN users r ON r.id = u.rejected_by
+                LEFT JOIN users d ON d.id = u.deleted_by
                 $where
                 ORDER BY u.created_at DESC
                 LIMIT :limit OFFSET :offset";
@@ -76,6 +102,8 @@ final class AccountsController
             'q' => $q,
             'roleFilter' => $role,
             'statusFilter' => $status,
+            'accessFilter' => $access,
+            'recordScopeFilter' => $recordScope,
             'pagination' => [
                 'page' => $page,
                 'pages' => $pages,
@@ -88,6 +116,8 @@ final class AccountsController
                     'q' => $q,
                     'role' => $role,
                     'status' => $status,
+                    'access' => $access,
+                    'record_scope' => $recordScope,
                 ],
             ],
         ]);
@@ -97,14 +127,25 @@ final class AccountsController
     {
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
         $params = [];
-        $where = "WHERE is_deleted = 0";
+        if ($recordScope === 'archived') {
+            $where = "WHERE is_deleted = 1";
+        } elseif ($recordScope === 'all') {
+            $where = "WHERE 1=1";
+        } else {
+            $recordScope = 'active';
+            $where = "WHERE is_deleted = 0";
+        }
         if ($q !== '') {
-            $where .= " AND (name LIKE :q OR email LIKE :q OR id_number LIKE :q)";
-            $params[':q'] = '%' . $q . '%';
+            $like = '%' . $q . '%';
+            $where .= " AND (name LIKE :q_name OR email LIKE :q_email OR id_number LIKE :q_id)";
+            $params[':q_name'] = $like;
+            $params[':q_email'] = $like;
+            $params[':q_id'] = $like;
         }
         if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
             $where .= " AND status = :status";
@@ -123,7 +164,7 @@ final class AccountsController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT id, id_number, name, email, status, created_at
+        $sql = "SELECT id, id_number, name, email, status, is_deleted, deleted_at, created_at
                 FROM students
                 $where
                 ORDER BY created_at DESC
@@ -142,6 +183,7 @@ final class AccountsController
             'students' => $students,
             'q' => $q,
             'statusFilter' => $status,
+            'recordScopeFilter' => $recordScope,
             'pagination' => [
                 'page' => $page,
                 'pages' => $pages,
@@ -153,6 +195,7 @@ final class AccountsController
                 'query' => [
                     'q' => $q,
                     'status' => $status,
+                    'record_scope' => $recordScope,
                 ],
             ],
         ]);
@@ -553,6 +596,60 @@ final class AccountsController
         redirect('/administrator/accounts');
     }
 
+    public static function archive(): void
+    {
+        verifyCsrfOrFail();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $selfId = (int)($_SESSION['user_id'] ?? 0);
+
+        if ($id === $selfId) {
+            flash('error', 'You cannot archive your own account.');
+            redirect('/administrator/accounts');
+        }
+
+        $sql = "UPDATE users
+                SET is_deleted = 1,
+                    deleted_at = NOW(),
+                    deleted_by = :deleted_by,
+                    is_active = 0,
+                    updated_by = :updated_by
+                WHERE id = :id AND is_deleted = 0";
+        Database::pdo()->prepare($sql)->execute([
+            ':id' => $id,
+            ':deleted_by' => $selfId,
+            ':updated_by' => $selfId,
+        ]);
+
+        Logger::log($selfId, 'ARCHIVE_ACCOUNT', 'users', $id, 'Archived account');
+        flash('success', 'Account archived.');
+        redirect('/administrator/accounts');
+    }
+
+    public static function restore(): void
+    {
+        verifyCsrfOrFail();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $selfId = (int)($_SESSION['user_id'] ?? 0);
+
+        $sql = "UPDATE users
+                SET is_deleted = 0,
+                    deleted_at = NULL,
+                    deleted_by = NULL,
+                    is_active = 1,
+                    updated_by = :updated_by
+                WHERE id = :id AND is_deleted = 1";
+        Database::pdo()->prepare($sql)->execute([
+            ':id' => $id,
+            ':updated_by' => $selfId,
+        ]);
+
+        Logger::log($selfId, 'RESTORE_ACCOUNT', 'users', $id, 'Restored archived account');
+        flash('success', 'Account restored.');
+        redirect('/administrator/accounts?record_scope=archived');
+    }
+
     public static function verify(): void
     {
         verifyCsrfOrFail();
@@ -694,5 +791,47 @@ final class AccountsController
             'error' => $error,
             'user' => $user ?: ['id'=>$id,'name'=>'','email'=>'','role'=>'admission','account_status'=>'pending','is_active'=>1],
         ]);
+    }
+
+    public static function archiveStudent(): void
+    {
+        verifyCsrfOrFail();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        Database::pdo()->prepare("UPDATE students
+                                  SET is_deleted = 1,
+                                      deleted_at = NOW(),
+                                      updated_by = :updated_by
+                                  WHERE id = :id AND is_deleted = 0")
+            ->execute([
+                ':id' => $id,
+                ':updated_by' => $userId,
+            ]);
+
+        Logger::log($userId, 'ARCHIVE_STUDENT', 'students', $id, 'Archived student record');
+        flash('success', 'Student archived.');
+        redirect('/administrator/students');
+    }
+
+    public static function restoreStudent(): void
+    {
+        verifyCsrfOrFail();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        Database::pdo()->prepare("UPDATE students
+                                  SET is_deleted = 0,
+                                      deleted_at = NULL,
+                                      updated_by = :updated_by
+                                  WHERE id = :id AND is_deleted = 1")
+            ->execute([
+                ':id' => $id,
+                ':updated_by' => $userId,
+            ]);
+
+        Logger::log($userId, 'RESTORE_STUDENT', 'students', $id, 'Restored student record');
+        flash('success', 'Student restored.');
+        redirect('/administrator/students?record_scope=archived');
     }
 }

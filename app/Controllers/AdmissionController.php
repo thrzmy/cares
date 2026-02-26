@@ -214,7 +214,7 @@ final class AdmissionController
                 static fn($row) => (int)$row['id'],
                 $students
             );
-            $recommendations = self::getRecommendationsForStudents($studentIds, 3);
+            $recommendations = self::getRecommendationsForStudents($studentIds, 1);
         }
 
         View::render('admission/results', [
@@ -258,12 +258,14 @@ final class AdmissionController
 
         $parts = WeightsService::getExamParts();
         $scoresMap = ScoresService::getStudentScoresMap($id);
+        $courseSummaries = self::getCourseRecommendationsForStudent($id);
 
         View::render('admission/view_scores', [
             'title' => 'View Scores',
             'student' => $student,
             'parts' => $parts,
             'scoresMap' => $scoresMap,
+            'courseSummaries' => $courseSummaries,
         ]);
     }
 
@@ -346,11 +348,19 @@ final class AdmissionController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
         $params = [];
-        $where = "WHERE is_deleted = 0";
+        if ($recordScope === 'archived') {
+            $where = "WHERE is_deleted = 1";
+        } elseif ($recordScope === 'all') {
+            $where = "WHERE 1=1";
+        } else {
+            $recordScope = 'active';
+            $where = "WHERE is_deleted = 0";
+        }
         if ($q !== '') {
             $where .= " AND (name LIKE :q_name OR email LIKE :q_email OR id_number LIKE :q_id)";
             $like = '%' . $q . '%';
@@ -375,7 +385,7 @@ final class AdmissionController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT id, id_number, name, email, status, created_at
+        $sql = "SELECT id, id_number, name, email, status, is_deleted, deleted_at, created_at
                 FROM students
                 $where
                 ORDER BY created_at DESC
@@ -394,6 +404,7 @@ final class AdmissionController
             'students' => $students,
             'q' => $q,
             'statusFilter' => $status,
+            'recordScopeFilter' => $recordScope,
             'pagination' => [
                 'page' => $page,
                 'pages' => $pages,
@@ -405,6 +416,7 @@ final class AdmissionController
                 'query' => [
                     'q' => $q,
                     'status' => $status,
+                    'record_scope' => $recordScope,
                 ],
             ],
         ]);
@@ -586,6 +598,58 @@ final class AdmissionController
         Logger::log(currentUserId(), 'UPDATE_STUDENT', 'students', $id, 'Admission updated student record');
         flash('success', 'Student updated.');
         redirect('/admission/students');
+    }
+
+    public static function archiveStudent(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('admission');
+
+        $id = (int)($_POST['id'] ?? 0);
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        Database::pdo()->prepare("UPDATE students
+                                  SET is_deleted = 1,
+                                      deleted_at = NOW(),
+                                      updated_by = :updated_by
+                                  WHERE id = :id AND is_deleted = 0")
+            ->execute([
+                ':id' => $id,
+                ':updated_by' => $userId,
+            ]);
+
+        Logger::log($userId, 'ARCHIVE_STUDENT', 'students', $id, 'Admission archived student record');
+        flash('success', 'Student archived.');
+        redirect('/admission/students');
+    }
+
+    public static function restoreStudent(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('admission');
+
+        $id = (int)($_POST['id'] ?? 0);
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        Database::pdo()->prepare("UPDATE students
+                                  SET is_deleted = 0,
+                                      deleted_at = NULL,
+                                      updated_by = :updated_by
+                                  WHERE id = :id AND is_deleted = 1")
+            ->execute([
+                ':id' => $id,
+                ':updated_by' => $userId,
+            ]);
+
+        Logger::log($userId, 'RESTORE_STUDENT', 'students', $id, 'Admission restored student record');
+        flash('success', 'Student restored.');
+        redirect('/admission/students?record_scope=archived');
     }
 
     public static function logs(): void
@@ -850,16 +914,13 @@ final class AdmissionController
         $recParams = [];
         $recDateFilter = $addDateFilter('ses.created_at', $recParams);
         $recommendationsSt = Database::pdo()->prepare(
-            "WITH ranked AS (
+            "WITH course_scores AS (
                 SELECT
                     ses.student_id,
+                    c.id AS course_id,
                     c.course_code,
                     c.course_name,
-                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY ses.student_id
-                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
-                    ) AS rn
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score
                 FROM student_exam_scores ses
                 INNER JOIN exam_parts ep
                     ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
@@ -871,15 +932,16 @@ final class AdmissionController
                 {$recDateFilter}
                 GROUP BY ses.student_id, c.id
             )
-            SELECT course_code,
-                   course_name,
-                   COUNT(*) AS student_count,
-                   AVG(total_score) AS avg_score
-            FROM ranked
-            WHERE rn = 1
-            GROUP BY course_code, course_name
-            ORDER BY student_count DESC, avg_score DESC
-            LIMIT 3"
+            SELECT c.course_code,
+                   c.course_name,
+                   COUNT(DISTINCT cs.student_id) AS student_count,
+                   AVG(cs.total_score) AS avg_score
+            FROM courses c
+            LEFT JOIN course_scores cs
+              ON cs.course_id = c.id
+            WHERE c.is_deleted = 0
+            GROUP BY c.id
+            ORDER BY (AVG(cs.total_score) IS NULL), AVG(cs.total_score) DESC, student_count DESC, c.course_name ASC"
         );
         $recommendationsSt->execute($recParams);
         $topRecommendations = $recommendationsSt->fetchAll();
@@ -1115,6 +1177,11 @@ final class AdmissionController
 
     private static function getTopRecommendationsForStudent(int $studentId, int $limit): array
     {
+        return array_slice(self::getCourseRecommendationsForStudent($studentId), 0, $limit);
+    }
+
+    private static function getCourseRecommendationsForStudent(int $studentId): array
+    {
         $sql = "WITH ranked AS (
                   SELECT
                       c.course_code,
@@ -1136,12 +1203,10 @@ final class AdmissionController
                 )
                 SELECT course_code, course_name, total_score, rn
                 FROM ranked
-                WHERE rn <= :limit
                 ORDER BY rn";
 
         $st = Database::pdo()->prepare($sql);
         $st->bindValue(':student_id', $studentId, PDO::PARAM_INT);
-        $st->bindValue(':limit', $limit, PDO::PARAM_INT);
         $st->execute();
 
         $rows = $st->fetchAll();

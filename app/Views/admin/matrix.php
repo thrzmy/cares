@@ -76,12 +76,12 @@ $currentPage = (int)($pagination['page'] ?? 1);
                     <?= csrfField() ?>
                     <input type="hidden" name="page" value="<?= e((string)$currentPage) ?>">
                     <div class="table-responsive mb-3">
-                        <table class="table table-bordered align-middle">
+                        <table class="table table-bordered align-middle matrix-table">
                             <thead class="table-light">
                                 <tr>
                                     <th style="min-width:220px;">Course</th>
                                     <?php foreach ($parts as $p): ?>
-                                        <th class="text-center" style="min-width:160px;">
+                                        <th class="text-center matrix-part-col" style="min-width:130px;">
                                             <?= e($p['name']) ?><br>
                                             <span class="text-muted small">Max Score: <?= e((string)$p['max_score']) ?></span>
                                         </th>
@@ -102,9 +102,9 @@ $currentPage = (int)($pagination['page'] ?? 1);
                                             $partId = (int)$p['id'];
                                             $val = $weightsMap[$courseId][$partId] ?? '';
                                             ?>
-                                            <td class="text-center">
+                                            <td class="text-center matrix-cell">
                                                 <input
-                                                    class="form-control form-control-sm text-center"
+                                                    class="form-control form-control-sm text-center matrix-weight-input"
                                                     type="number"
                                                     step="0.01"
                                                     min="0"

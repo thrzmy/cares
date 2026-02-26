@@ -69,50 +69,7 @@ final class AdminController
                 static fn($row) => (int)$row['id'],
                 $students
             );
-            $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
-
-            $recSql = "WITH ranked AS (
-                          SELECT
-                              ses.student_id,
-                              c.course_code,
-                              c.course_name,
-                              SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
-                              ROW_NUMBER() OVER (
-                                  PARTITION BY ses.student_id
-                                  ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
-                              ) AS rn
-                          FROM student_exam_scores ses
-                          INNER JOIN exam_parts ep
-                              ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
-                          INNER JOIN weights w
-                              ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
-                          INNER JOIN courses c
-                              ON c.id = w.course_id AND c.is_deleted = 0
-                          WHERE ses.is_deleted = 0
-                            AND ses.student_id IN ($placeholders)
-                          GROUP BY ses.student_id, c.id
-                        )
-                        SELECT student_id, course_code, course_name, total_score, rn
-                        FROM ranked
-                        WHERE rn <= 3
-                        ORDER BY student_id, rn";
-
-            $recSt = Database::pdo()->prepare($recSql);
-            $recSt->execute($studentIds);
-            $recRows = $recSt->fetchAll();
-
-            foreach ($recRows as $row) {
-                $sid = (int)$row['student_id'];
-                if (!isset($recommendations[$sid])) {
-                    $recommendations[$sid] = [];
-                }
-                $recommendations[$sid][] = [
-                    'course_code' => (string)$row['course_code'],
-                    'course_name' => (string)$row['course_name'],
-                    'total_score' => (float)$row['total_score'],
-                    'rank' => (int)$row['rn'],
-                ];
-            }
+            $recommendations = self::getRecommendationsForStudents($studentIds, 1);
         }
 
         View::render('admin/scores', [
@@ -156,12 +113,14 @@ final class AdminController
 
         $parts = WeightsService::getExamParts();
         $scoresMap = ScoresService::getStudentScoresMap($id);
+        $courseSummaries = self::getCourseRecommendationsForStudent($id);
 
         View::render('admin/view_scores', [
             'title' => 'View Scores',
             'student' => $student,
             'parts' => $parts,
             'scoresMap' => $scoresMap,
+            'courseSummaries' => $courseSummaries,
         ]);
     }
 
@@ -222,10 +181,13 @@ final class AdminController
         $page = max(1, (int)($_POST['page'] ?? 1));
 
         try {
-            WeightsService::saveMatrix($matrix, $userId);
-            Logger::log($userId, 'UPDATED_WEIGHTS', 'weights', null, 'Updated weights matrix');
-
-            flash('success', 'Matrix saved successfully.');
+            $hasChanges = WeightsService::saveMatrix($matrix, $userId);
+            if ($hasChanges) {
+                Logger::log($userId, 'UPDATED_WEIGHTS', 'weights', null, 'Updated weights matrix');
+                flash('success', 'Matrix saved successfully.');
+            } else {
+                flash('success', 'No changes detected in the matrix.');
+            }
             redirect('/administrator/matrix?page=' . $page);
         } catch (Throwable $e) {
             $perPage = 5;
@@ -584,16 +546,13 @@ final class AdminController
         $recParams = [];
         $recDateFilter = $addDateFilter('ses.created_at', $recParams);
         $recommendationsSt = Database::pdo()->prepare(
-            "WITH ranked AS (
+            "WITH course_scores AS (
                 SELECT
                     ses.student_id,
+                    c.id AS course_id,
                     c.course_code,
                     c.course_name,
-                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY ses.student_id
-                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
-                    ) AS rn
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score
                 FROM student_exam_scores ses
                 INNER JOIN exam_parts ep
                     ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
@@ -605,15 +564,16 @@ final class AdminController
                 {$recDateFilter}
                 GROUP BY ses.student_id, c.id
             )
-            SELECT course_code,
-                   course_name,
-                   COUNT(*) AS student_count,
-                   AVG(total_score) AS avg_score
-            FROM ranked
-            WHERE rn = 1
-            GROUP BY course_code, course_name
-            ORDER BY student_count DESC, avg_score DESC
-            LIMIT 3"
+            SELECT c.course_code,
+                   c.course_name,
+                   COUNT(DISTINCT cs.student_id) AS student_count,
+                   AVG(cs.total_score) AS avg_score
+            FROM courses c
+            LEFT JOIN course_scores cs
+              ON cs.course_id = c.id
+            WHERE c.is_deleted = 0
+            GROUP BY c.id
+            ORDER BY (AVG(cs.total_score) IS NULL), AVG(cs.total_score) DESC, student_count DESC, c.course_name ASC"
         );
         $recommendationsSt->execute($recParams);
         $topRecommendations = $recommendationsSt->fetchAll();
@@ -783,5 +743,89 @@ final class AdminController
         Logger::log($userId, 'UPDATE_PASSWORD', 'users', $userId, 'Administrator updated own password');
         flash('success', 'Password updated.');
         redirect('/administrator/profile');
+    }
+
+    private static function getRecommendationsForStudents(array $studentIds, int $limit): array
+    {
+        if (empty($studentIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
+        $sql = "WITH ranked AS (
+                    SELECT
+                        ses.student_id,
+                        c.course_code,
+                        c.course_name,
+                        SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY ses.student_id
+                            ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                        ) AS rn
+                    FROM student_exam_scores ses
+                    INNER JOIN exam_parts ep
+                        ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                    INNER JOIN weights w
+                        ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                    INNER JOIN courses c
+                        ON c.id = w.course_id AND c.is_deleted = 0
+                    WHERE ses.is_deleted = 0
+                      AND ses.student_id IN ($placeholders)
+                    GROUP BY ses.student_id, c.id
+                )
+                SELECT student_id, course_code, course_name, total_score, rn
+                FROM ranked
+                WHERE rn <= ?
+                ORDER BY student_id, rn";
+
+        $st = Database::pdo()->prepare($sql);
+        $st->execute(array_merge($studentIds, [$limit]));
+        $rows = $st->fetchAll();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $studentId = (int)$row['student_id'];
+            if (!isset($result[$studentId])) {
+                $result[$studentId] = [];
+            }
+            $result[$studentId][] = [
+                'course_code' => (string)$row['course_code'],
+                'course_name' => (string)$row['course_name'],
+                'total_score' => (float)$row['total_score'],
+                'rank' => (int)$row['rn'],
+            ];
+        }
+
+        return $result;
+    }
+
+    private static function getCourseRecommendationsForStudent(int $studentId): array
+    {
+        $sql = "SELECT
+                    c.course_code,
+                    c.course_name,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score
+                FROM student_exam_scores ses
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                INNER JOIN courses c
+                    ON c.id = w.course_id AND c.is_deleted = 0
+                WHERE ses.is_deleted = 0
+                  AND ses.student_id = :student_id
+                GROUP BY c.id
+                ORDER BY total_score DESC, c.course_name ASC";
+
+        $st = Database::pdo()->prepare($sql);
+        $st->execute([':student_id' => $studentId]);
+
+        return array_map(static function (array $row): array {
+            return [
+                'course_code' => (string)$row['course_code'],
+                'course_name' => (string)$row['course_name'],
+                'total_score' => (float)$row['total_score'],
+            ];
+        }, $st->fetchAll());
     }
 }

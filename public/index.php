@@ -71,6 +71,14 @@ $router->post('/administrator/accounts/toggle', function () {
     RoleMiddleware::requireRole('administrator');
     AccountsController::toggleActive();
 });
+$router->post('/administrator/accounts/archive', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::archive();
+});
+$router->post('/administrator/accounts/restore', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::restore();
+});
 
 $router->post('/administrator/accounts/reset-password', function () {
     RoleMiddleware::requireRole('administrator');
@@ -115,6 +123,14 @@ $router->post('/administrator/students/edit', function () {
     RoleMiddleware::requireRole('administrator');
     AccountsController::updateStudent();
 });
+$router->post('/administrator/students/archive', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::archiveStudent();
+});
+$router->post('/administrator/students/restore', function () {
+    RoleMiddleware::requireRole('administrator');
+    AccountsController::restoreStudent();
+});
 
 $router->get('/admission', [AdmissionController::class, 'dashboard']);
 $router->get('/admission/encode', [AdmissionController::class, 'encode']);
@@ -134,5 +150,7 @@ $router->get('/admission/students/create', [AdmissionController::class, 'createS
 $router->post('/admission/students/create', [AdmissionController::class, 'storeStudent']);
 $router->get('/admission/students/edit', [AdmissionController::class, 'editStudent']);
 $router->post('/admission/students/edit', [AdmissionController::class, 'updateStudent']);
+$router->post('/admission/students/archive', [AdmissionController::class, 'archiveStudent']);
+$router->post('/admission/students/restore', [AdmissionController::class, 'restoreStudent']);
 
 $router->dispatch($method, $path);

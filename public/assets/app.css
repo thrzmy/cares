@@ -258,6 +258,26 @@ body.has-top-nav {
   background-color: var(--cares-emerald) !important;
 }
 
+.badge.badge-log-archive-account {
+  background-color: #2b2f36;
+  color: #fff;
+}
+
+.badge.badge-log-archive-student {
+  background-color: #6c757d;
+  color: #fff;
+}
+
+.badge.badge-log-restore-student {
+  background-color: var(--cares-emerald);
+  color: #fff;
+}
+
+.badge.badge-log-restore-account {
+  background-color: #256528;
+  color: #fff;
+}
+
 .table thead th {
   white-space: nowrap;
 }
@@ -279,6 +299,21 @@ body.has-top-nav {
 
 .table-hover tbody tr:hover {
   background-color: #f9f2e8;
+}
+
+.matrix-part-col {
+  min-width: 130px;
+}
+
+.matrix-cell {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.matrix-weight-input {
+  max-width: 92px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .form-control,

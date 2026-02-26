@@ -23,12 +23,15 @@ $error = $error ?? null;
 <?php endif; ?>
 
 <form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/admission/encode">
-  <div class="col-12 col-md-10">
-    <label class="form-label small">Search</label>
-    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or ID number">
+  <div class="col-12 col-lg-7">
+    <label class="form-label small">Search Students</label>
+    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name or email">
   </div>
-  <div class="col-12 col-md-2 d-grid">
-    <button class="btn btn-outline-primary" type="submit">Filter</button>
+  <div class="col-6 col-sm-4 col-md-3 col-lg-2 d-grid">
+    <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/encode">Clear Filters</a>
+  </div>
+  <div class="col-6 col-sm-4 col-md-3 col-lg-2 d-grid">
+    <button class="btn btn-primary" type="submit">Search</button>
   </div>
 </form>
 
@@ -41,7 +44,6 @@ $error = $error ?? null;
             <div>
               <div class="fw-semibold"><?= e($s['name']) ?></div>
               <div class="text-muted small"><?= e($s['email']) ?></div>
-              <div class="text-muted small">ID: <?= e((string)($s['id_number'] ?? 'Not set')) ?></div>
             </div>
           </div>
           <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/admission/encode/edit?id=<?= (int)$s['id'] ?>">Input Scores</a>
@@ -56,7 +58,6 @@ $error = $error ?? null;
         <thead class="table-light">
           <tr>
             <th>Name</th>
-            <th>ID Number</th>
             <th>Email</th>
             <th class="text-end">Actions</th>
           </tr>
@@ -65,7 +66,6 @@ $error = $error ?? null;
           <?php foreach ($students as $s): ?>
             <tr>
               <td class="fw-semibold"><?= e($s['name']) ?></td>
-              <td><?= e((string)($s['id_number'] ?? 'Not set')) ?></td>
               <td><?= e($s['email']) ?></td>
               <td class="text-end">
                 <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode/edit?id=<?= (int)$s['id'] ?>">Input Scores</a>
