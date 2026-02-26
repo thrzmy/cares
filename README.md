@@ -58,20 +58,11 @@ scripts/    Test runner + module test suites
 
 3. Update `.env` values for your environment (see [Environment Variables](#environment-variables)).
 4. Create database (example: `cares`).
-5. Seed the database:
+5. Seed the database (phpMyAdmin / SQL import):
 
    1. Import `database/schema.sql`
-   2. Run setup seed (courses, exam parts, weights):
-
-   ```bash
-   php scripts/seed.php setup --fresh
-   ```
-
-   3. Run sample/demo seed data:
-
-   ```bash
-   php scripts/seed.php sample
-   ```
+   2. Import `database/setup_seed.sql` (courses, exam parts, weights)
+   3. Optional for local/demo only: import `database/seed.sql` (sample users/students/scores/logs)
 
 6. Start app from repo root:
 
@@ -127,66 +118,98 @@ Created by schema + sample seed:
 
 You can update these in `database/schema.sql` and `database/seed.sql` (sample data source) before seeding.
 
-## Seeder (Simple)
+## Setup Data (SQL / phpMyAdmin)
 
-Main editable setup file:
+Use these SQL files in phpMyAdmin:
 
-- `database/setup.json`
+- `database/schema.sql` -> creates tables + default admin account
+- `database/setup_seed.sql` -> inserts/updates courses, exam parts, and weights
+- `database/seed.sql` -> optional sample/demo data (users, students, scores, logs)
 
-Commands:
+### Add a New Course (SQL)
 
-- `php scripts/seed.php setup --fresh` -> initial setup only (truncates and reloads `courses`, `exam_parts`, `weights`)
-- `php scripts/seed.php sample` -> load sample/demo data (`users`, `students`, scores, logs, etc.)
-- `php scripts/seed.php all --fresh` -> run both setup + sample data
+1. Insert the course in `courses`
+2. Insert related weights in `weights` (one row per exam part)
 
-Notes:
+Example (`BSBA`):
 
-- `setup.json` is client-friendly and uses `course_code` + exam part names (no DB IDs).
-- `database/seed.sql` is currently used as the sample data source (legacy split source).
-- If the system already has data, use `php scripts/seed.php setup` (without `--fresh`) to safely update weights/setup data.
-- `--fresh` is recommended only during initial setup or full database reset.
-
-### Editing `database/setup.json` (Client Guide)
-
-To add a new course, update 2 places in `database/setup.json`:
-
-1. Add the course in `courses`
-2. Add the matching weights in `weights`
-
-Example (add `BSBA`):
-
-```json
-{
-  "course_code": "BSBA",
-  "course_name": "B.S. in Business Administration"
-}
+```sql
+INSERT INTO courses (course_code, course_name, is_deleted)
+VALUES ('BSBA', 'B.S. in Business Administration', 0);
 ```
 
-```json
-{
-  "course_code": "BSBA",
-  "weights": {
-    "English": 25,
-    "Filipino": 10,
-    "Literature": 10,
-    "Math": 25,
-    "Science": 10,
-    "Studies": 10,
-    "Humanities": 10
-  }
-}
+Then add weights (example assumes exam parts already exist and uses names, not hardcoded IDs):
+
+```sql
+INSERT INTO weights (course_id, exam_part_id, weight, is_deleted, created_by, updated_by)
+SELECT c.id, ep.id, 25.00, 0, 1, 1
+FROM courses c
+JOIN exam_parts ep ON ep.name = 'English'
+WHERE c.course_code = 'BSBA';
+
+INSERT INTO weights (course_id, exam_part_id, weight, is_deleted, created_by, updated_by)
+SELECT c.id, ep.id, 10.00, 0, 1, 1
+FROM courses c
+JOIN exam_parts ep ON ep.name = 'Filipino'
+WHERE c.course_code = 'BSBA';
+
+INSERT INTO weights (course_id, exam_part_id, weight, is_deleted, created_by, updated_by)
+SELECT c.id, ep.id, 10.00, 0, 1, 1
+FROM courses c
+JOIN exam_parts ep ON ep.name = 'Literature'
+WHERE c.course_code = 'BSBA';
+
+INSERT INTO weights (course_id, exam_part_id, weight, is_deleted, created_by, updated_by)
+SELECT c.id, ep.id, 25.00, 0, 1, 1
+FROM courses c
+JOIN exam_parts ep ON ep.name = 'Math'
+WHERE c.course_code = 'BSBA';
+
+INSERT INTO weights (course_id, exam_part_id, weight, is_deleted, created_by, updated_by)
+SELECT c.id, ep.id, 10.00, 0, 1, 1
+FROM courses c
+JOIN exam_parts ep ON ep.name = 'Science'
+WHERE c.course_code = 'BSBA';
+
+INSERT INTO weights (course_id, exam_part_id, weight, is_deleted, created_by, updated_by)
+SELECT c.id, ep.id, 10.00, 0, 1, 1
+FROM courses c
+JOIN exam_parts ep ON ep.name = 'Studies'
+WHERE c.course_code = 'BSBA';
+
+INSERT INTO weights (course_id, exam_part_id, weight, is_deleted, created_by, updated_by)
+SELECT c.id, ep.id, 10.00, 0, 1, 1
+FROM courses c
+JOIN exam_parts ep ON ep.name = 'Humanities'
+WHERE c.course_code = 'BSBA';
 ```
 
 Rules:
 
-- `course_code` in `weights` must exactly match the `course_code` in `courses`
-- Weight keys must match the names in `exam_parts` exactly
+- `course_code` must be unique
+- Weight rows must match existing `exam_parts.name`
 - Total weights per course should equal `100`
 
-After editing, run:
+### Add / Update an Exam Part (SQL)
 
-- `php scripts/seed.php setup` (recommended if the system already has data)
-- `php scripts/seed.php setup --fresh` (initial setup / full reset only)
+Add a new exam part:
+
+```sql
+INSERT INTO exam_parts (name, max_score, is_deleted)
+VALUES ('Logic', 30.00, 0);
+```
+
+Update max score of an existing exam part:
+
+```sql
+UPDATE exam_parts
+SET max_score = 40.00, is_deleted = 0, deleted_at = NULL
+WHERE name = 'Math';
+```
+
+Important:
+
+- If you add a new exam part, you should also add corresponding `weights` rows for every course.
 
 ## Email Setup (Brevo) - Client Handoff
 
@@ -267,7 +290,7 @@ Notes:
 
 ## Common Maintenance Tasks
 
-- Reset DB: re-import `database/schema.sql`, then run `php scripts/seed.php all --fresh`.
-- Change setup config seeds: edit `database/setup.json`.
-- Change sample/demo seeds: edit `database/seed.sql`, then run `php scripts/seed.php sample`.
+- Reset DB: re-import `database/schema.sql`, then `database/setup_seed.sql` (and optionally `database/seed.sql` for demo data).
+- Change setup data: edit/import `database/setup_seed.sql` or run SQL manually in phpMyAdmin.
+- Change sample/demo seeds: edit `database/seed.sql` before importing.
 - Review auth/account flow: `app/Controllers/AuthController.php`, `app/Controllers/AccountsController.php`.
