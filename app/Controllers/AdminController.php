@@ -532,17 +532,6 @@ final class AdminController
         $logEntriesSt->execute($logsParams);
         $logEntries = (int)$logEntriesSt->fetchColumn();
 
-        $topActionsSt = Database::pdo()->prepare(
-            "SELECT l.action, COUNT(*) AS total
-             FROM logs l
-             {$logsWhere}
-             GROUP BY l.action
-             ORDER BY total DESC
-             LIMIT 6"
-        );
-        $topActionsSt->execute($logsParams);
-        $topActions = $topActionsSt->fetchAll();
-
         $recParams = [];
         $recDateFilter = $addDateFilter('ses.created_at', $recParams);
         $recommendationsSt = Database::pdo()->prepare(
@@ -627,7 +616,6 @@ final class AdminController
             'userStatusCounts' => $userStatusCounts,
             'studentStatusCounts' => $studentStatusCounts,
             'examParts' => $examParts,
-            'topActions' => $topActions,
             'topRecommendations' => $topRecommendations,
         ]);
     }

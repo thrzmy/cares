@@ -56,7 +56,7 @@ $requiredAttr = $isView ? '' : 'required';
                     <div class="text-muted small"><?= e((string)$rec['course_name']) ?></div>
                   </div>
                 </div>
-                <span class="badge" style="background: rgba(111,17,25,0.10); color: var(--cares-maroon); border: 1px solid rgba(111,17,25,0.18);">
+                <span class="badge badge-score-pill">
                   <?= e(number_format((float)$rec['total_score'], 2)) ?>%
                 </span>
               </div>

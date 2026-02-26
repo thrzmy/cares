@@ -135,7 +135,7 @@ $formatEntity = static function (string $entity): string {
                 <div class="text-muted small"><?= e((string)$log['user_email']) ?></div>
               <?php endif; ?>
             </div>
-            <span class="badge <?= e($badgeForAction($action)) ?> text-uppercase">
+            <span class="badge <?= e($badgeForAction($action)) ?>">
               <?= e($formatAction($action)) ?>
             </span>
           </div>
@@ -202,7 +202,7 @@ $formatEntity = static function (string $entity): string {
                 <?php endif; ?>
               </td>
               <td>
-                <span class="badge <?= e($badgeForAction($action)) ?> text-uppercase">
+                <span class="badge <?= e($badgeForAction($action)) ?>">
                   <?= e($formatAction($action)) ?>
                 </span>
               </td>

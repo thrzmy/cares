@@ -7,7 +7,6 @@ $userStatusCounts = $userStatusCounts ?? [];
 $studentStatusCounts = $studentStatusCounts ?? [];
 $examParts = $examParts ?? [];
 $topRecommendations = $topRecommendations ?? [];
-$topActions = $topActions ?? [];
 $sortedExamParts = $examParts;
 usort($sortedExamParts, static function (array $a, array $b): int {
     $aAvg = $a['avg_score'] !== null ? (float)$a['avg_score'] : null;
@@ -246,7 +245,7 @@ if (($startDate ?? '') === $weekStart && ($endDate ?? '') === $today) {
                   </div>
                   <div class="text-end">
                     <div class="small text-muted">Average Score</div>
-                    <span class="badge" style="background: rgba(111,17,25,0.10); color: var(--cares-maroon); border: 1px solid rgba(111,17,25,0.18);">
+                    <span class="badge badge-score-pill">
                       <?= $row['avg_score'] !== null ? e(number_format((float)$row['avg_score'], 2)) : '-' ?>
                     </span>
                   </div>

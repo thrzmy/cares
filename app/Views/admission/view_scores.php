@@ -68,7 +68,7 @@ usort($sortedParts, static function (array $a, array $b) use ($scoresMap): int {
                         <div class="fw-semibold"><?= e((string)$course['course_code']) ?></div>
                       </div>
                     </div>
-                    <span class="badge" style="background: rgba(111,17,25,0.10); color: var(--cares-maroon); border: 1px solid rgba(111,17,25,0.18);">
+                    <span class="badge badge-score-pill">
                       <?= e(number_format($score, 2)) ?>%
                     </span>
                   </div>

@@ -124,7 +124,7 @@ $formatEntity = static function (string $entity): string {
         <div class="card-body">
           <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
             <div class="text-muted small">Occurred: <?= e($createdAt) ?></div>
-            <span class="badge <?= e($badgeForAction($action)) ?> text-uppercase">
+            <span class="badge <?= e($badgeForAction($action)) ?>">
               <?= e($formatAction($action)) ?>
             </span>
           </div>
@@ -177,7 +177,7 @@ $formatEntity = static function (string $entity): string {
             <tr>
               <td class="text-muted small"><?= e($createdAt) ?></td>
               <td>
-                <span class="badge <?= e($badgeForAction($action)) ?> text-uppercase">
+                <span class="badge <?= e($badgeForAction($action)) ?>">
                   <?= e($formatAction($action)) ?>
                 </span>
               </td>
