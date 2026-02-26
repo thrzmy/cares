@@ -58,10 +58,20 @@ scripts/    Test runner + module test suites
 
 3. Update `.env` values for your environment (see [Environment Variables](#environment-variables)).
 4. Create database (example: `cares`).
-5. Import SQL files in this exact order:
+5. Seed the database:
 
-   1. `database/schema.sql`
-   2. `database/seed.sql`
+   1. Import `database/schema.sql`
+   2. Run setup seed (courses, exam parts, weights):
+
+   ```bash
+   php scripts/seed.php setup --fresh
+   ```
+
+   3. Run sample/demo seed data:
+
+   ```bash
+   php scripts/seed.php sample
+   ```
 
 6. Start app from repo root:
 
@@ -109,16 +119,74 @@ EMAIL_VERIFICATION_RESEND_SECONDS="60"
 
 ## Default Accounts
 
-Created by SQL imports:
+Created by schema + sample seed:
 
 - Administrator
   - Email: `admin@cares.local`
   - Password: `123456789`
-- Admission sample user
-  - Email: `admission@cares.local`
-  - Password: `123456789`
 
-You can update these in `database/schema.sql` and `database/seed.sql` before importing.
+You can update these in `database/schema.sql` and `database/seed.sql` (sample data source) before seeding.
+
+## Seeder (Simple)
+
+Main editable setup file:
+
+- `database/setup.json`
+
+Commands:
+
+- `php scripts/seed.php setup --fresh` -> initial setup only (truncates and reloads `courses`, `exam_parts`, `weights`)
+- `php scripts/seed.php sample` -> load sample/demo data (`users`, `students`, scores, logs, etc.)
+- `php scripts/seed.php all --fresh` -> run both setup + sample data
+
+Notes:
+
+- `setup.json` is client-friendly and uses `course_code` + exam part names (no DB IDs).
+- `database/seed.sql` is currently used as the sample data source (legacy split source).
+- If the system already has data, use `php scripts/seed.php setup` (without `--fresh`) to safely update weights/setup data.
+- `--fresh` is recommended only during initial setup or full database reset.
+
+### Editing `database/setup.json` (Client Guide)
+
+To add a new course, update 2 places in `database/setup.json`:
+
+1. Add the course in `courses`
+2. Add the matching weights in `weights`
+
+Example (add `BSBA`):
+
+```json
+{
+  "course_code": "BSBA",
+  "course_name": "B.S. in Business Administration"
+}
+```
+
+```json
+{
+  "course_code": "BSBA",
+  "weights": {
+    "English": 25,
+    "Filipino": 10,
+    "Literature": 10,
+    "Math": 25,
+    "Science": 10,
+    "Studies": 10,
+    "Humanities": 10
+  }
+}
+```
+
+Rules:
+
+- `course_code` in `weights` must exactly match the `course_code` in `courses`
+- Weight keys must match the names in `exam_parts` exactly
+- Total weights per course should equal `100`
+
+After editing, run:
+
+- `php scripts/seed.php setup` (recommended if the system already has data)
+- `php scripts/seed.php setup --fresh` (initial setup / full reset only)
 
 ## Email Setup (Brevo) - Client Handoff
 
@@ -199,6 +267,7 @@ Notes:
 
 ## Common Maintenance Tasks
 
-- Reset DB: re-import `database/schema.sql`, then `database/seed.sql`.
-- Change default account seeds: edit `database/schema.sql` and `database/seed.sql` before import.
+- Reset DB: re-import `database/schema.sql`, then run `php scripts/seed.php all --fresh`.
+- Change setup config seeds: edit `database/setup.json`.
+- Change sample/demo seeds: edit `database/seed.sql`, then run `php scripts/seed.php sample`.
 - Review auth/account flow: `app/Controllers/AuthController.php`, `app/Controllers/AccountsController.php`.
