@@ -170,6 +170,6 @@ INSERT INTO users (
     force_password_change
 )
 VALUES
-    ('Admin', 'admin@cares.local', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'verified', '2026-02-01 08:55:00', 1, '2026-02-01 09:00:00', NULL, NULL, NULL, 1, 0);
+    ('Admin', 'cares.cct@gmail.com', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'verified', '2026-02-01 08:55:00', 1, '2026-02-01 09:00:00', NULL, NULL, NULL, 1, 0);
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -113,7 +113,7 @@ EMAIL_VERIFICATION_RESEND_SECONDS="60"
 Created by schema + sample seed:
 
 - Administrator
-  - Email: `admin@cares.local`
+  - Email: `cares.cct@gmail.com`
   - Password: `123456789`
 
 You can update these in `database/schema.sql` and `database/seed.sql` (sample data source) before seeding.
