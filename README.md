@@ -65,7 +65,11 @@ scripts/    Test runner + module test suites
    3. Optional for local/demo only: import `database/seed.sql` (sample users/students/scores/logs)
 
 6. Start app from repo root:
-
+  
+   Start XAMPP (or any PHP-capable web server):
+   
+   or
+   
    ```bash
    php -S localhost:8000 -t public
    ```
