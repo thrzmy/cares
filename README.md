@@ -87,7 +87,7 @@ All config values are loaded from `.env` at runtime.
 ```env
 APP_URL="http://localhost:8000"
 APP_NAME="CAReS"
-BASE_PATH=""
+BASE_PATH="/cares/public"
 APP_TIMEZONE="Asia/Manila"
 
 DB_HOST="127.0.0.1"
