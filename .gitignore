@@ -1,0 +1,11 @@
+.env
+.env.infinityfree
+TURNOVER_NOTES.md
+TURNOVER_NOTES.pdf
+/vendor/
+/node_modules/
+.DS_Store
+.idea/
+.vscode/
+coverage/
+*.log

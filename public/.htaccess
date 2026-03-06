@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# IMPORTANT: adjust base to your project public path
+RewriteBase /cares/public/
+
+# If the requested path is NOT a real file/folder, route to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
