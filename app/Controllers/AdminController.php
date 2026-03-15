@@ -25,6 +25,7 @@ final class AdminController
                       FROM student_exam_scores ses
                       WHERE ses.student_id = s.id AND ses.is_deleted = 0
                   )";
+
         if ($q !== '') {
             $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
             $like = '%' . $q . '%';
@@ -134,36 +135,18 @@ final class AdminController
     {
         RoleMiddleware::requireRole('administrator');
 
-        $page = max(1, (int)($_GET['page'] ?? 1));
-        $perPage = 5;
-        $total = WeightsService::getCoursesCount();
-        $pages = max(1, (int)ceil($total / $perPage));
-        if ($page > $pages) {
-            $page = $pages;
-        }
-        $offset = ($page - 1) * $perPage;
-
-        $courses = WeightsService::getCoursesPage($perPage, $offset);
-        $parts = WeightsService::getExamParts();
+        $courses = WeightsService::getAllCourses();
+        // Use grouped exam parts for the UI
+        $groupedParts = WeightsService::getExamPartsGrouped();
         $weightsMap = WeightsService::getWeightsMap();
 
         View::render('admin/matrix', [
-            'title' => 'Matrix Management',
+            'title' => 'Matrix Configuration',
             'courses' => $courses,
-            'parts' => $parts,
+            'groupedParts' => $groupedParts,
             'weightsMap' => $weightsMap,
-            'success' => null,
-            'error' => null,
-            'pagination' => [
-                'page' => $page,
-                'pages' => $pages,
-                'total' => $total,
-                'perPage' => $perPage,
-                'from' => $total > 0 ? $offset + 1 : 0,
-                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
-                'basePath' => '/administrator/matrix',
-                'query' => [],
-            ],
+            'success' => flash('success'),
+            'error' => flash('error'),
         ]);
     }
 
@@ -172,54 +155,115 @@ final class AdminController
         verifyCsrfOrFail();
         RoleMiddleware::requireRole('administrator');
 
+        $weights = $_POST['weights'] ?? [];
+        $maxScores = $_POST['max_scores'] ?? [];
+
         $userId = currentUserId();
         if ($userId === null) {
             redirect('/login');
         }
 
-        $matrix = $_POST['weights'] ?? [];
-        $page = max(1, (int)($_POST['page'] ?? 1));
+        try {
+            // Update max scores first
+            if (!empty($maxScores)) {
+                WeightsService::updateMaxScores($maxScores);
+            }
+
+            // Save weights
+            $hasChanges = WeightsService::saveMatrix($weights, $userId);
+
+            if ($hasChanges || !empty($maxScores)) {
+                Logger::log(
+                    $userId,
+                    'UPDATE_MATRIX',
+                    'weights',
+                    null,
+                    'Administrator updated the recommendation weights matrix and/or exam part max scores.'
+                );
+                flash('success', 'Matrix configuration saved successfully.');
+            } else {
+                flash('success', 'No changes were made to the matrix.');
+            }
+        } catch (Throwable $e) {
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to save matrix configuration.');
+        }
+
+        redirect('/administrator/matrix');
+    }
+
+    public static function addCourse(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('administrator');
+
+        $code = trim((string)($_POST['course_code'] ?? ''));
+        $name = trim((string)($_POST['course_name'] ?? ''));
+
+        if ($code === '' || $name === '') {
+            flash('error', 'Course code and name are required.');
+            redirect('/administrator/matrix');
+        }
 
         try {
-            $hasChanges = WeightsService::saveMatrix($matrix, $userId);
-            if ($hasChanges) {
-                Logger::log($userId, 'UPDATED_WEIGHTS', 'weights', null, 'Updated weights matrix');
-                flash('success', 'Matrix saved successfully.');
-            } else {
-                flash('success', 'No changes detected in the matrix.');
-            }
-            redirect('/administrator/matrix?page=' . $page);
+            $courseId = WeightsService::addCourse($code, $name);
+            Logger::log(currentUserId(), 'ADD_COURSE', 'courses', $courseId, "Administrator added course: {$code}");
+            flash('success', "Course '{$code}' added successfully.");
         } catch (Throwable $e) {
-            $perPage = 5;
-            $total = WeightsService::getCoursesCount();
-            $pages = max(1, (int)ceil($total / $perPage));
-            if ($page > $pages) {
-                $page = $pages;
-            }
-            $offset = ($page - 1) * $perPage;
-            $courses = WeightsService::getCoursesPage($perPage, $offset);
-            $parts = WeightsService::getExamParts();
-            $weightsMap = WeightsService::getWeightsMap();
-
-            View::render('admin/matrix', [
-                'title' => 'Matrix Management',
-                'courses' => $courses,
-                'parts' => $parts,
-                'weightsMap' => $weightsMap,
-                'success' => null,
-                'error' => APP_DEBUG ? $e->getMessage() : 'Failed to save matrix.',
-                'pagination' => [
-                    'page' => $page,
-                    'pages' => $pages,
-                    'total' => $total,
-                    'perPage' => $perPage,
-                    'from' => $total > 0 ? $offset + 1 : 0,
-                    'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
-                    'basePath' => '/administrator/matrix',
-                    'query' => [],
-                ],
-            ]);
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to add course.');
         }
+
+        redirect('/administrator/matrix');
+    }
+
+    public static function deleteCourse(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('administrator');
+
+        $id = (int)($_POST['course_id'] ?? 0);
+        if ($id <= 0) {
+            flash('error', 'Invalid course ID.');
+            redirect('/administrator/matrix');
+        }
+
+        try {
+            WeightsService::deleteCourse($id, currentUserId());
+            Logger::log(currentUserId(), 'DELETE_COURSE', 'courses', $id, 'Administrator deleted course from matrix');
+            flash('success', 'Course deleted successfully.');
+        } catch (Throwable $e) {
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to delete course.');
+        }
+
+        redirect('/administrator/matrix');
+    }
+
+    public static function addExamPart(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('administrator');
+
+        $name = trim((string)($_POST['name'] ?? ''));
+        $maxScoreRaw = trim((string)($_POST['max_score'] ?? '100'));
+        $categoryId = (int)($_POST['category_id'] ?? 0);
+
+        if ($name === '') {
+            flash('error', 'Exam part name is required.');
+            redirect('/administrator/matrix');
+        }
+        if (!is_numeric($maxScoreRaw) || (float)$maxScoreRaw <= 0) {
+            flash('error', 'Max score must be a positive number.');
+            redirect('/administrator/matrix');
+        }
+
+        try {
+            $partId = WeightsService::addExamPart($name, (float)$maxScoreRaw, $categoryId > 0 ? $categoryId : null);
+            Logger::log(currentUserId(), 'ADD_EXAM_PART', 'exam_parts', $partId, "Administrator added exam part: {$name}");
+            flash('success', "Exam part '{$name}' added successfully.");
+        } catch (Throwable $e) {
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to add exam part.');
+        }
+
+        redirect('/administrator/matrix');
     }
 
     public static function logs(): void

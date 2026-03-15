@@ -720,7 +720,6 @@ final class AdmissionController
             $where .= " AND l.created_at <= :end_date";
             $params[':end_date'] = $endDate . ' 23:59:59';
         }
-
         $countSql = "SELECT COUNT(*)
                      FROM logs l
                      LEFT JOIN students s
@@ -748,7 +747,6 @@ final class AdmissionController
             $page = $pages;
         }
         $offset = ($page - 1) * $perPage;
-
         $sql = "SELECT l.id,
                        l.user_id,
                        l.action,

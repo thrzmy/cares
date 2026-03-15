@@ -5,14 +5,28 @@ final class Router
 {
     private array $routes = ['GET' => [], 'POST' => []];
 
-    public function get(string $path, callable $handler): void
+    /**
+     * Normalize a handler: if it's an array like [Class, 'method'], wrap it.
+     */
+    private function normalizeHandler($handler): callable
     {
-        $this->routes['GET'][$path] = $handler;
+        if (is_array($handler) && count($handler) === 2) {
+            return static function () use ($handler): void {
+                [$class, $method] = $handler;
+                $class::$method();
+            };
+        }
+        return $handler;
     }
 
-    public function post(string $path, callable $handler): void
+    public function get(string $path, $handler): void
     {
-        $this->routes['POST'][$path] = $handler;
+        $this->routes['GET'][$path] = $this->normalizeHandler($handler);
+    }
+
+    public function post(string $path, $handler): void
+    {
+        $this->routes['POST'][$path] = $this->normalizeHandler($handler);
     }
 
     public function dispatch(string $method, string $path): void

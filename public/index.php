@@ -21,6 +21,7 @@ $router->get('/', fn() => redirect('/login'));
 $router->get('/login', [AuthController::class, 'showLogin']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/logout', [AuthController::class, 'logout']);
+$router->post('/logout', [AuthController::class, 'logout']);
 
 $router->get('/register', [AuthController::class, 'showRegister']);
 $router->post('/register', [AuthController::class, 'register']);
@@ -152,5 +153,21 @@ $router->get('/admission/students/edit', [AdmissionController::class, 'editStude
 $router->post('/admission/students/edit', [AdmissionController::class, 'updateStudent']);
 $router->post('/admission/students/archive', [AdmissionController::class, 'archiveStudent']);
 $router->post('/admission/students/restore', [AdmissionController::class, 'restoreStudent']);
+
+// ── Semester Management (Admin) ──
+$router->get('/administrator/semesters', [SemesterController::class, 'index']);
+$router->post('/administrator/semesters/store', [SemesterController::class, 'storeSchoolYear']);
+$router->post('/administrator/semesters/update', [SemesterController::class, 'updateSchoolYear']);
+$router->post('/administrator/semesters/archive', [SemesterController::class, 'archiveSchoolYear']);
+$router->post('/administrator/semesters/set-active', [SemesterController::class, 'setActive']);
+$router->post('/administrator/semesters/archive-semester', [SemesterController::class, 'archiveSemester']);
+
+// ── Matrix Course/Part Management (Admin) ──
+$router->post('/administrator/matrix/add-course', [AdminController::class, 'addCourse']);
+$router->post('/administrator/matrix/delete-course', [AdminController::class, 'deleteCourse']);
+$router->post('/administrator/matrix/add-part', [AdminController::class, 'addExamPart']);
+
+// ── Session Heartbeat ──
+$router->get('/session/ping', [SessionController::class, 'ping']);
 
 $router->dispatch($method, $path);

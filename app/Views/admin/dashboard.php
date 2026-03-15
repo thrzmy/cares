@@ -1,108 +1,98 @@
 <?php
 declare(strict_types=1);
+
+RoleMiddleware::requireRole('administrator');
 ?>
-<div class="page-header mb-3">
-  <div>
-    <div class="page-kicker">Administrator</div>
-    <h4 class="fw-bold mb-1">Administrator Dashboard</h4>
-    <p class="page-subtitle">Manage accounts, students, results, recommendations, logs, and reports.</p>
-  </div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="h3 mb-0 text-gray-800 font-cinzel text-maroon fw-bold">Dashboard</h2>
+        <p class="text-muted small mb-0 mt-1">Welcome back, <?= e($_SESSION['name'] ?? 'Administrator') ?>.</p>
+    </div>
 </div>
 
-<div class="row g-3">
-  <div class="col-12 col-md-6">
-    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/administrator/accounts">
-      <div class="d-flex align-items-start gap-3">
-        <div class="tile-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-7 2-7 4.5a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5C19 16 16 14 12 14Z"/>
-          </svg>
-        </div>
-        <div>
-          <h6 class="fw-bold mb-1 tile-title">Account Management</h6>
-          <p class="text-muted small mb-2">Manage system users (administrators and admissions staff).</p>
-        </div>
-      </div>
-    </a>
-  </div>
+<div class="row g-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/accounts" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center maroon">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-primary bg-primary bg-opacity-10">
+                    <i class="fa-solid fa-users-gear fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Account Management</h5>
+                <span class="text-muted small fw-medium mt-auto">Manage Users</span>
+            </div>
+        </a>
+    </div>
 
-  <div class="col-12 col-md-6">
-    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/administrator/students">
-      <div class="d-flex align-items-start gap-3">
-        <div class="tile-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 4 2 9l10 5 10-5-10-5Zm0 8.7L5.6 10 12 6.8 18.4 10 12 12.7Zm8 2.3v2l-8 4-8-4v-2l8 4 8-4Z"/>
-          </svg>
-        </div>
-        <div>
-          <h6 class="fw-bold mb-1 tile-title">Student Management</h6>
-          <p class="text-muted small mb-2">Manage student records, IDs, and admission status.</p>
-        </div>
-      </div>
-    </a>
-  </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/students" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center gold">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-success bg-success bg-opacity-10">
+                    <i class="fa-solid fa-user-graduate fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Student Management</h5>
+                <span class="text-muted small fw-medium mt-auto">View & Edit Students</span>
+            </div>
+        </a>
+    </div>
 
-  <div class="col-12 col-md-6">
-    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/administrator/scores">
-      <div class="d-flex align-items-start gap-3">
-        <div class="tile-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 4h4v16H4V4Zm6 6h4v10h-4V10Zm6-4h4v14h-4V6Z"/>
-          </svg>
-        </div>
-        <div>
-          <h6 class="fw-bold mb-1 tile-title">Results & Recommendations</h6>
-          <p class="text-muted small mb-2">Review encoded exam scores and course recommendations.</p>
-        </div>
-      </div>
-    </a>
-  </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/scores" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center success">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-warning bg-warning bg-opacity-10">
+                    <i class="fa-solid fa-square-poll-vertical fs-4 text-warning"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Exam Results</h5>
+                <span class="text-muted small fw-medium mt-auto">View Recommendations</span>
+            </div>
+        </a>
+    </div>
 
-  <div class="col-12 col-md-6">
-    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/administrator/matrix">
-      <div class="d-flex align-items-start gap-3">
-        <div class="tile-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 4h6v6H4V4Zm0 10h6v6H4v-6Zm10-10h6v6h-6V4Zm0 10h6v6h-6v-6Z"/>
-          </svg>
-        </div>
-        <div>
-          <h6 class="fw-bold mb-1 tile-title">Matrix Configuration</h6>
-          <p class="text-muted small mb-2">Configure course-to-exam-part weights for recommendations.</p>
-        </div>
-      </div>
-    </a>
-  </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/matrix" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center info">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-info bg-info bg-opacity-10">
+                    <i class="fa-solid fa-table-list fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Matrix Config</h5>
+                <span class="text-muted small fw-medium mt-auto">Adjust Scoring Weights</span>
+            </div>
+        </a>
+    </div>
 
-  <div class="col-12 col-md-6">
-    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/administrator/reports">
-      <div class="d-flex align-items-start gap-3">
-        <div class="tile-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z"/>
-          </svg>
-        </div>
-        <div>
-          <h6 class="fw-bold mb-1 tile-title">System Reports</h6>
-          <p class="text-muted small mb-2">Generate reports for accounts, exams, and recommendations by period.</p>
-        </div>
-      </div>
-    </a>
-  </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/semesters" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center gold">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-primary bg-primary bg-opacity-10">
+                    <i class="fa-solid fa-calendar-check fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Academic Terms</h5>
+                <span class="text-muted small fw-medium mt-auto">Manage Semesters</span>
+            </div>
+        </a>
+    </div>
 
-  <div class="col-12 col-md-6">
-    <a class="admin-tile admin-tile-link" href="<?= e(BASE_PATH) ?>/administrator/logs">
-      <div class="d-flex align-items-start gap-3">
-        <div class="tile-icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Zm4 2v6h8v-6H8Z"/>
-          </svg>
-        </div>
-        <div>
-          <h6 class="fw-bold mb-1 tile-title">Activity Logs</h6>
-          <p class="text-muted small mb-2">Track user actions and system events.</p>
-        </div>
-      </div>
-    </a>
-  </div>
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/reports" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center maroon">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-secondary bg-secondary bg-opacity-10">
+                    <i class="fa-solid fa-file-contract fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">System Reports</h5>
+                <span class="text-muted small fw-medium mt-auto">Generate Analytics</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/logs" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center info">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-dark bg-dark bg-opacity-10">
+                    <i class="fa-solid fa-clock-rotate-left fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Activity Logs</h5>
+                <span class="text-muted small fw-medium mt-auto">Track User Actions</span>
+            </div>
+        </a>
+    </div>
 </div>

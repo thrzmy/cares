@@ -77,6 +77,38 @@ $error = flash('error');
     </div>
   </div>
 </form>
+<!-- YOUR ACCOUNT SECTION -->
+<?php if (!empty($currentUser)): ?>
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-white py-3 border-0">
+      <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 1px;">Your Account</small>
+    </div>
+    <div class="card-body pt-0">
+      <div class="d-flex align-items-center gap-3">
+        <div class="flex-shrink-0 d-flex align-items-center justify-content-center border rounded-3" style="width: 60px; height: 60px; background: rgba(111, 17, 25, 0.05);">
+          <i class="fa-solid fa-user-shield fa-xl" style="color: var(--cares-maroon);"></i>
+        </div>
+        <div class="flex-grow-1">
+          <div class="badge bg-light text-dark border mb-1" style="font-size: 0.65rem;"><?= e(strtoupper((string)$currentUser['role'])) ?></div>
+          <h5 class="fw-bold mb-0" style="color: var(--cares-maroon);"><?= e($currentUser['name']) ?></h5>
+          <p class="text-muted small mb-0"><?= e($currentUser['email']) ?></p>
+        </div>
+        <div class="text-end d-none d-md-block">
+          <div class="text-muted small mb-1">Member Since</div>
+          <div class="fw-bold small"><?= date('M Y', strtotime((string)$currentUser['created_at'])) ?></div>
+        </div>
+        <div class="text-end d-none d-md-block">
+          <a href="<?= e(BASE_PATH) ?>/administrator/profile" class="btn btn-outline-primary btn-sm">Edit Profile</a>
+        </div>
+      </div>
+    </div>
+  </div>
+<?php endif; ?>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h6 class="text-muted text-uppercase fw-bold mb-0" style="font-size: 0.75rem; letter-spacing: 1px;">Other Accounts</h6>
+  <span class="badge bg-light text-muted border" style="font-size: 0.7rem;"><?= e((string)($pagination['total'] ?? 0)) ?> total</span>
+</div>
 
 <?php if (!empty($users)): ?>
   <div class="d-block d-md-none">

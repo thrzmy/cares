@@ -44,6 +44,10 @@ final class AccountsController
             $where .= " AND u.account_status = :status";
             $params[':status'] = $status;
         }
+
+        // Exclude current logged-in user from the main list
+        $where .= " AND u.id != :current_user_id";
+        $params[':current_user_id'] = $_SESSION['user_id'];
         if ($access === '' || $access === 'all') {
             $access = 'all';
         } elseif ($access === 'disabled') {
@@ -96,9 +100,18 @@ final class AccountsController
         $st->execute();
         $users = $st->fetchAll();
 
+        // Fetch current user details separately for the profile card
+        $currentUserSql = "SELECT u.id, u.name, u.email, u.role, u.account_status, u.is_active, u.created_at, u.verified_at
+                           FROM users u
+                           WHERE u.id = :uid LIMIT 1";
+        $cst = Database::pdo()->prepare($currentUserSql);
+        $cst->execute([':uid' => $_SESSION['user_id']]);
+        $currentUser = $cst->fetch();
+
         View::render('admin/accounts/index', [
             'title' => 'Accounts',
             'users' => $users,
+            'currentUser' => $currentUser,
             'q' => $q,
             'roleFilter' => $role,
             'statusFilter' => $status,
@@ -415,6 +428,20 @@ final class AccountsController
             $role = 'admission';
         }
 
+        // Limit administrator accounts to maximum 2
+        if ($role === 'administrator') {
+            $st = Database::pdo()->prepare("SELECT COUNT(*) FROM users WHERE role = 'administrator' AND is_deleted = 0");
+            $st->execute();
+            if ((int)$st->fetchColumn() >= 2) {
+                View::render('admin/accounts/create', [
+                    'title' => 'Create Account',
+                    'error' => 'Maximum limit of 2 administrator accounts has been reached.',
+                    'old' => compact('name', 'email', 'role') + ['is_active' => $isActive],
+                ]);
+                return;
+            }
+        }
+
         $accountStatus = 'verified';
         $isActive = $isActive ? 1 : 0;
 
@@ -518,6 +545,22 @@ final class AccountsController
         }
         if (!in_array($role, ['administrator', 'admission'], true)) {
             $role = 'admission';
+        }
+
+        // Limit administrator accounts to maximum 2
+        if ($role === 'administrator') {
+            $checkSt = Database::pdo()->prepare("SELECT role FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+            $checkSt->execute([':id' => $id]);
+            $oldRole = (string)$checkSt->fetchColumn();
+
+            if ($oldRole !== 'administrator') {
+                $countSt = Database::pdo()->prepare("SELECT COUNT(*) FROM users WHERE role = 'administrator' AND is_deleted = 0");
+                $countSt->execute();
+                if ((int)$countSt->fetchColumn() >= 2) {
+                    self::renderEditWithError($id, 'Maximum limit of 2 administrator accounts has been reached.');
+                    return;
+                }
+            }
         }
 
         // prevent self demotion/disable accidents (optional)

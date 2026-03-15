@@ -166,9 +166,9 @@ $formatEntity = static function (string $entity): string {
   </div>
 
   <div class="d-none d-md-block">
-    <div class="table-responsive">
+    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
       <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
+        <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
           <tr>
             <th>Date/Time</th>
             <th>User</th>
@@ -238,4 +238,3 @@ $formatEntity = static function (string $entity): string {
 $pagination = $pagination ?? null;
 require __DIR__ . '/../partials/pagination.php';
 ?>
-

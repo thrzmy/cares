@@ -18,6 +18,8 @@ require_once __DIR__ . '/../app/Controllers/AccountsController.php';
 require_once __DIR__ . '/../app/Controllers/AuthController.php';
 require_once __DIR__ . '/../app/Controllers/AdminController.php';
 require_once __DIR__ . '/../app/Controllers/AdmissionController.php';
+require_once __DIR__ . '/../app/Controllers/SemesterController.php';
+require_once __DIR__ . '/../app/Controllers/SessionController.php';
 
 require_once __DIR__ . '/../app/Middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../app/Middleware/RoleMiddleware.php';
@@ -30,6 +32,7 @@ foreach ([
   'TokenService',
   'WeightsService',
   'ScoresService',
+  'RecommendationService',
 ] as $svc) {
   require_once __DIR__ . "/../app/Services/{$svc}.php";
 }
@@ -39,6 +42,15 @@ ini_set('session.use_strict_mode', '1');
 ini_set('session.cookie_httponly', '1');
 
 $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+$sessionPath = session_save_path();
+
+if ($sessionPath === '' || !is_dir($sessionPath) || !is_writable($sessionPath)) {
+    $sessionPath = __DIR__ . '/../storage/sessions';
+    if (!is_dir($sessionPath)) {
+        mkdir($sessionPath, 0775, true);
+    }
+    session_save_path($sessionPath);
+}
 
 session_set_cookie_params([
     'lifetime' => 0,

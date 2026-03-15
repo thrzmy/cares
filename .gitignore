@@ -9,3 +9,11 @@ TURNOVER_NOTES.pdf
 .vscode/
 coverage/
 *.log
+/storage/sessions/
+/tmp/
+/tmp_unzip/
+/test_engine.php
+/check_schema_final.php
+/tmp_check_sem14.php
+/tmp_check_students.php
+/public/assets/templates/*.csv
