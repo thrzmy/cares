@@ -2,17 +2,24 @@
 declare(strict_types=1);
 $success = $success ?? null;
 $error = $error ?? null;
+$activeSemester = $activeSemester ?? null;
 ?>
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Admission</div>
-    <h4 class="fw-bold mb-1">Encode Test Results</h4>
-    <p class="page-subtitle">Encode scores for pending students without records.</p>
-  </div>
-  <div class="page-actions">
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission">Back to Dashboard</a>
+    <h4 class="fw-bold mb-1">Encode Results</h4>
+    <p class="page-subtitle">Select a pending student, then enter scores by exam part group.</p>
   </div>
 </div>
+
+<?php if (!empty($activeSemester)): ?>
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2 mb-4">
+    <div>
+      <h6 class="text-muted text-uppercase fw-bold mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">Current Academic Year</h6>
+      <div class="fw-semibold"><?= e((string)($activeSemester['school_year_name'] ?? '')) ?></div>
+    </div>
+  </div>
+<?php endif; ?>
 
 <?php if (!empty($success)): ?>
   <div class="alert alert-success"><?= e($success) ?></div>
@@ -22,16 +29,20 @@ $error = $error ?? null;
   <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
-<form class="row g-2 align-items-end mb-3" method="get" action="<?= e(BASE_PATH) ?>/admission/encode">
-  <div class="col-12 col-lg-7">
-    <label class="form-label small">Search Students</label>
-    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name or email">
-  </div>
-  <div class="col-6 col-sm-4 col-md-3 col-lg-2 d-grid">
-    <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/encode">Clear Filters</a>
-  </div>
-  <div class="col-6 col-sm-4 col-md-3 col-lg-2 d-grid">
-    <button class="btn btn-primary" type="submit">Search</button>
+<form class="mb-3" method="get" action="<?= e(BASE_PATH) ?>/admission/encode">
+  <div class="row g-2 align-items-end">
+    <div class="col-12">
+      <label class="form-label small">Search Students</label>
+    </div>
+    <div class="col-12 col-xl-8">
+      <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or ID number">
+    </div>
+    <div class="col-6 col-md-3 col-xl-2 d-grid">
+      <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/encode">Clear Filters</a>
+    </div>
+    <div class="col-6 col-md-3 col-xl-2 d-grid">
+      <button class="btn btn-primary" type="submit">Apply Search</button>
+    </div>
   </div>
 </form>
 

@@ -1,13 +1,17 @@
 -- CARES database schema
--- Compatible with MySQL 8+
+-- Canonical full schema for fresh installs
+-- Import this first, then database/setup_seed.sql
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS students;
 DROP TABLE IF EXISTS student_exam_scores;
 DROP TABLE IF EXISTS weights;
+DROP TABLE IF EXISTS students;
+DROP TABLE IF EXISTS semesters;
+DROP TABLE IF EXISTS school_years;
 DROP TABLE IF EXISTS exam_parts;
+DROP TABLE IF EXISTS exam_part_categories;
 DROP TABLE IF EXISTS courses;
 DROP TABLE IF EXISTS password_resets;
 DROP TABLE IF EXISTS email_verifications;
@@ -44,13 +48,51 @@ CREATE TABLE users (
     INDEX idx_users_deleted (is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE school_years (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 0,
+    is_archived TINYINT(1) NOT NULL DEFAULT 0,
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    UNIQUE KEY uk_school_years_name (name),
+    INDEX idx_school_years_active (is_active),
+    INDEX idx_school_years_archived (is_archived),
+    INDEX idx_school_years_deleted (is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE semesters (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    school_year_id INT UNSIGNED NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 0,
+    is_archived TINYINT(1) NOT NULL DEFAULT 0,
+    is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    UNIQUE KEY uk_semesters_sy_name (school_year_id, name),
+    INDEX idx_semesters_school_year (school_year_id),
+    INDEX idx_semesters_active (is_active),
+    INDEX idx_semesters_archived (is_archived),
+    INDEX idx_semesters_deleted (is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE students (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     id_number VARCHAR(50) NULL,
     name VARCHAR(150) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     status ENUM('pending', 'admitted', 'rejected', 'waitlisted') NOT NULL DEFAULT 'pending',
+    semester_id INT UNSIGNED NULL,
     is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+    is_archived TINYINT(1) NOT NULL DEFAULT 0,
     created_by INT UNSIGNED NULL,
     updated_by INT UNSIGNED NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,7 +101,9 @@ CREATE TABLE students (
     UNIQUE KEY uk_students_id_number (id_number),
     CHECK (status <> 'admitted' OR id_number IS NOT NULL),
     INDEX idx_students_status (status),
-    INDEX idx_students_deleted (is_deleted)
+    INDEX idx_students_semester (semester_id),
+    INDEX idx_students_deleted (is_deleted),
+    INDEX idx_students_archived (is_archived)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE logs (
@@ -108,15 +152,27 @@ CREATE TABLE courses (
     INDEX idx_courses_deleted (is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE exam_part_categories (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    UNIQUE KEY uk_exam_part_categories_name (name),
+    INDEX idx_exam_part_categories_sort_order (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE exam_parts (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     max_score DECIMAL(6,2) NOT NULL DEFAULT 100.00,
+    category_id INT UNSIGNED NULL,
+    sort_order INT NOT NULL DEFAULT 0,
     is_deleted TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     deleted_at DATETIME NULL,
     UNIQUE KEY uk_exam_parts_name (name),
+    INDEX idx_exam_parts_category (category_id),
+    INDEX idx_exam_parts_sort_order (sort_order),
     INDEX idx_exam_parts_deleted (is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -153,8 +209,8 @@ CREATE TABLE weights (
     INDEX idx_weights_deleted (is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Default admin account
 INSERT INTO users (
+    id,
     name,
     email,
     password,
@@ -170,6 +226,6 @@ INSERT INTO users (
     force_password_change
 )
 VALUES
-    ('Admin', 'cares.cct@gmail.com', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'verified', '2026-02-01 08:55:00', 1, '2026-02-01 09:00:00', NULL, NULL, NULL, 1, 0);
+    (1, 'Admin', 'cares.cct@gmail.com', '$2y$10$u8xUhBOWcGw2Vsn9FEAJ6.1ibjgSAOatpZBt10sBvCwqkm0KtXvFa', 'administrator', 'verified', '2026-02-01 08:55:00', 1, '2026-02-01 09:00:00', NULL, NULL, NULL, 1, 0);
 
 SET FOREIGN_KEY_CHECKS = 1;

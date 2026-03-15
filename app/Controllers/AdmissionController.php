@@ -18,6 +18,7 @@ final class AdmissionController
 
         $params = [];
         $where = "WHERE s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
                   AND NOT EXISTS (
                       SELECT 1
                       FROM student_exam_scores ses
@@ -44,6 +45,7 @@ final class AdmissionController
             'title' => 'Encode Test Results',
             'students' => $students,
             'q' => $q,
+            'activeSemester' => self::getActiveSemester(),
             'success' => flash('success'),
             'error' => flash('error'),
         ]);
@@ -55,7 +57,7 @@ final class AdmissionController
 
         $id = (int)($_GET['id'] ?? 0);
         $viewMode = (string)($_GET['view'] ?? '') === '1';
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -72,6 +74,7 @@ final class AdmissionController
             }
 
             $parts = WeightsService::getExamParts();
+            $groupedParts = WeightsService::getExamPartsGrouped();
             $scoresMap = ScoresService::getStudentScoresMap($id);
             $recommendations = self::getTopRecommendationsForStudent($id, 3);
 
@@ -79,8 +82,10 @@ final class AdmissionController
                 'title' => 'View Results',
                 'student' => $student,
                 'parts' => $parts,
+                'groupedParts' => $groupedParts,
                 'scoresMap' => $scoresMap,
                 'recommendations' => $recommendations,
+                'activeSemester' => self::getActiveSemester(),
                 'error' => null,
                 'success' => flash('success'),
                 'mode' => 'view',
@@ -89,13 +94,16 @@ final class AdmissionController
         }
 
         $parts = WeightsService::getExamParts();
+        $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
 
         View::render('admission/encode_form', [
             'title' => 'Encode Test Results',
             'student' => $student,
             'parts' => $parts,
+            'groupedParts' => $groupedParts,
             'scoresMap' => $scoresMap,
+            'activeSemester' => self::getActiveSemester(),
             'error' => null,
             'success' => flash('success'),
             'mode' => 'encode',
@@ -108,7 +116,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_POST['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -140,13 +148,16 @@ final class AdmissionController
             redirect('/admission/encode/edit?id=' . $id . '&view=1');
         } catch (Throwable $e) {
             $parts = WeightsService::getExamParts();
+            $groupedParts = WeightsService::getExamPartsGrouped();
             $scoresMap = ScoresService::getStudentScoresMap($id);
 
             View::render('admission/encode_form', [
                 'title' => 'Encode Test Results',
                 'student' => $student,
                 'parts' => $parts,
+                'groupedParts' => $groupedParts,
                 'scoresMap' => $scoresMap,
+                'activeSemester' => self::getActiveSemester(),
                 'error' => APP_DEBUG ? $e->getMessage() : 'Failed to save scores.',
                 'success' => null,
                 'mode' => $mode,
@@ -160,16 +171,30 @@ final class AdmissionController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
+        $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
+        $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
         $params = [];
-        $where = "WHERE s.is_deleted = 0
+        if ($recordScope === 'archived') {
+            $where = "WHERE (s.is_deleted = 1 OR COALESCE(s.is_archived, 0) = 1)
                   AND EXISTS (
                       SELECT 1
                       FROM student_exam_scores ses
                       WHERE ses.student_id = s.id AND ses.is_deleted = 0
                   )";
+        } else {
+            $recordScope = 'active';
+            $where = "WHERE s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  AND EXISTS (
+                      SELECT 1
+                      FROM student_exam_scores ses
+                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
+                  )";
+        }
         if ($q !== '') {
             $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
             $like = '%' . $q . '%';
@@ -181,9 +206,49 @@ final class AdmissionController
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
+        if ($recordScope === 'archived' && $schoolYearId > 0) {
+            $where .= " AND sy.id = :school_year_id";
+            $params[':school_year_id'] = $schoolYearId;
+        }
+        if ($recordScope === 'archived' && $semesterId > 0) {
+            $where .= " AND sem.id = :semester_id";
+            $params[':semester_id'] = $semesterId;
+        }
+
+        $archivedSchoolYears = [];
+        $archivedSemesters = [];
+        $archivedSemestersByYear = [];
+        if ($recordScope === 'archived') {
+            $archivedSchoolYears = Database::pdo()->query("
+                SELECT id, name
+                FROM school_years
+                WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 1
+                ORDER BY created_at DESC
+            ")->fetchAll();
+
+            $allSemesterRows = Database::pdo()->query("
+                SELECT id, school_year_id, name
+                FROM semesters
+                WHERE is_deleted = 0
+                ORDER BY FIELD(name, '1st Semester', '2nd Semester', 'Summer')
+            ")->fetchAll();
+
+            foreach ($allSemesterRows as $semesterRow) {
+                $archivedSemestersByYear[(int)$semesterRow['school_year_id']][] = [
+                    'id' => (int)$semesterRow['id'],
+                    'name' => (string)$semesterRow['name'],
+                ];
+            }
+
+            if ($schoolYearId > 0) {
+                $archivedSemesters = $archivedSemestersByYear[$schoolYearId] ?? [];
+            }
+        }
 
         $countSql = "SELECT COUNT(*)
                      FROM students s
+                     LEFT JOIN semesters sem ON sem.id = s.semester_id
+                     LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                      $where";
         $countSt = Database::pdo()->prepare($countSql);
         $countSt->execute($params);
@@ -194,8 +259,13 @@ final class AdmissionController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at,
+                       s.is_deleted, s.is_archived,
+                       sem.name AS semester_name,
+                       sy.name AS school_year_name
                 FROM students s
+                LEFT JOIN semesters sem ON sem.id = s.semester_id
+                LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                 $where
                 ORDER BY s.created_at DESC
                 LIMIT :limit OFFSET :offset";
@@ -223,6 +293,13 @@ final class AdmissionController
             'recommendations' => $recommendations,
             'q' => $q,
             'statusFilter' => $status,
+            'recordScopeFilter' => $recordScope,
+            'schoolYearFilter' => $schoolYearId,
+            'semesterFilter' => $semesterId,
+            'archivedSchoolYears' => $archivedSchoolYears,
+            'archivedSemesters' => $archivedSemesters,
+            'archivedSemestersByYear' => $archivedSemestersByYear,
+            'activeSemester' => self::getActiveSemester(),
             'success' => flash('success'),
             'error' => flash('error'),
             'pagination' => [
@@ -236,6 +313,9 @@ final class AdmissionController
                 'query' => [
                     'q' => $q,
                     'status' => $status,
+                    'record_scope' => $recordScope,
+                    'school_year_id' => $schoolYearId > 0 ? $schoolYearId : '',
+                    'semester_id' => $semesterId > 0 ? $semesterId : '',
                 ],
             ],
         ]);
@@ -246,7 +326,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -257,6 +337,7 @@ final class AdmissionController
         }
 
         $parts = WeightsService::getExamParts();
+        $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
         $courseSummaries = self::getCourseRecommendationsForStudent($id);
 
@@ -264,6 +345,7 @@ final class AdmissionController
             'title' => 'View Scores',
             'student' => $student,
             'parts' => $parts,
+            'groupedParts' => $groupedParts,
             'scoresMap' => $scoresMap,
             'courseSummaries' => $courseSummaries,
         ]);
@@ -275,14 +357,28 @@ final class AdmissionController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
+        $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
+        $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
 
         $params = [];
-        $where = "WHERE s.is_deleted = 0
+        if ($recordScope === 'archived') {
+            $where = "WHERE (s.is_deleted = 1 OR COALESCE(s.is_archived, 0) = 1)
                   AND EXISTS (
                       SELECT 1
                       FROM student_exam_scores ses
                       WHERE ses.student_id = s.id AND ses.is_deleted = 0
                   )";
+        } else {
+            $recordScope = 'active';
+            $where = "WHERE s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  AND EXISTS (
+                      SELECT 1
+                      FROM student_exam_scores ses
+                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
+                  )";
+        }
         if ($q !== '') {
             $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
             $like = '%' . $q . '%';
@@ -294,9 +390,51 @@ final class AdmissionController
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
+        if ($recordScope === 'archived' && $schoolYearId > 0) {
+            $where .= " AND sy.id = :school_year_id";
+            $params[':school_year_id'] = $schoolYearId;
+        }
+        if ($recordScope === 'archived' && $semesterId > 0) {
+            $where .= " AND sem.id = :semester_id";
+            $params[':semester_id'] = $semesterId;
+        }
 
-        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+        $archivedSchoolYears = [];
+        $archivedSemesters = [];
+        $archivedSemestersByYear = [];
+        if ($recordScope === 'archived') {
+            $archivedSchoolYears = Database::pdo()->query("
+                SELECT id, name
+                FROM school_years
+                WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 1
+                ORDER BY created_at DESC
+            ")->fetchAll();
+
+            $allSemesterRows = Database::pdo()->query("
+                SELECT id, school_year_id, name
+                FROM semesters
+                WHERE is_deleted = 0
+                ORDER BY FIELD(name, '1st Semester', '2nd Semester', 'Summer')
+            ")->fetchAll();
+            foreach ($allSemesterRows as $semesterRow) {
+                $archivedSemestersByYear[(int)$semesterRow['school_year_id']][] = [
+                    'id' => (int)$semesterRow['id'],
+                    'name' => (string)$semesterRow['name'],
+                ];
+            }
+
+            if ($schoolYearId > 0) {
+                $archivedSemesters = $archivedSemestersByYear[$schoolYearId] ?? [];
+            }
+        }
+
+        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at,
+                       s.is_deleted, s.is_archived,
+                       sem.name AS semester_name,
+                       sy.name AS school_year_name
                 FROM students s
+                LEFT JOIN semesters sem ON sem.id = s.semester_id
+                LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                 $where
                 ORDER BY s.created_at DESC";
         $st = Database::pdo()->prepare($sql);
@@ -308,6 +446,13 @@ final class AdmissionController
             'students' => $students,
             'q' => $q,
             'statusFilter' => $status,
+            'recordScopeFilter' => $recordScope,
+            'activeSemester' => self::getActiveSemester(),
+            'schoolYearFilter' => $schoolYearId,
+            'semesterFilter' => $semesterId,
+            'archivedSchoolYears' => $archivedSchoolYears,
+            'archivedSemesters' => $archivedSemesters,
+            'archivedSemestersByYear' => $archivedSemestersByYear,
             'success' => flash('success'),
             'error' => flash('error'),
         ]);
@@ -318,7 +463,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -329,13 +474,16 @@ final class AdmissionController
         }
 
         $parts = WeightsService::getExamParts();
+        $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
 
         View::render('admission/encode_form', [
             'title' => 'Edit Scores',
             'student' => $student,
             'parts' => $parts,
+            'groupedParts' => $groupedParts,
             'scoresMap' => $scoresMap,
+            'activeSemester' => self::getActiveSemester(),
             'error' => null,
             'success' => flash('success'),
             'mode' => 'edit',
@@ -349,32 +497,73 @@ final class AdmissionController
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
         $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
+        $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
+        $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
         $params = [];
         if ($recordScope === 'archived') {
-            $where = "WHERE is_deleted = 1";
+            $where = "WHERE s.is_deleted = 1";
         } elseif ($recordScope === 'all') {
             $where = "WHERE 1=1";
         } else {
             $recordScope = 'active';
-            $where = "WHERE is_deleted = 0";
+            $where = "WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0";
         }
         if ($q !== '') {
-            $where .= " AND (name LIKE :q_name OR email LIKE :q_email OR id_number LIKE :q_id)";
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
             $like = '%' . $q . '%';
             $params[':q_name'] = $like;
             $params[':q_email'] = $like;
             $params[':q_id'] = $like;
         }
         if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
-            $where .= " AND status = :status";
+            $where .= " AND s.status = :status";
             $params[':status'] = $status;
+        }
+        if ($recordScope === 'archived' && $schoolYearId > 0) {
+            $where .= " AND sy.id = :school_year_id";
+            $params[':school_year_id'] = $schoolYearId;
+        }
+        if ($recordScope === 'archived' && $semesterId > 0) {
+            $where .= " AND sem.id = :semester_id";
+            $params[':semester_id'] = $semesterId;
+        }
+
+        $archivedSchoolYears = [];
+        $archivedSemesters = [];
+        $archivedSemestersByYear = [];
+        if ($recordScope === 'archived') {
+            $archivedSchoolYears = Database::pdo()->query("
+                SELECT id, name
+                FROM school_years
+                WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 1
+                ORDER BY created_at DESC
+            ")->fetchAll();
+
+            $allSemesterRows = Database::pdo()->query("
+                SELECT id, school_year_id, name
+                FROM semesters
+                WHERE is_deleted = 0
+                ORDER BY FIELD(name, '1st Semester', '2nd Semester', 'Summer')
+            ")->fetchAll();
+            foreach ($allSemesterRows as $semesterRow) {
+                $archivedSemestersByYear[(int)$semesterRow['school_year_id']][] = [
+                    'id' => (int)$semesterRow['id'],
+                    'name' => (string)$semesterRow['name'],
+                ];
+            }
+
+            if ($schoolYearId > 0) {
+                $archivedSemesters = $archivedSemestersByYear[$schoolYearId] ?? [];
+            }
         }
 
         $countSql = "SELECT COUNT(*)
-                     FROM students
+                     FROM students s
+                     LEFT JOIN semesters sem ON sem.id = s.semester_id
+                     LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                      $where";
         $countSt = Database::pdo()->prepare($countSql);
         $countSt->execute($params);
@@ -385,10 +574,14 @@ final class AdmissionController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT id, id_number, name, email, status, is_deleted, deleted_at, created_at
-                FROM students
+        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.is_deleted, s.deleted_at, s.created_at,
+                       sem.name AS semester_name,
+                       sy.name AS school_year_name
+                FROM students s
+                LEFT JOIN semesters sem ON sem.id = s.semester_id
+                LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                 $where
-                ORDER BY created_at DESC
+                ORDER BY s.created_at DESC
                 LIMIT :limit OFFSET :offset";
         $st = Database::pdo()->prepare($sql);
         foreach ($params as $key => $value) {
@@ -405,6 +598,12 @@ final class AdmissionController
             'q' => $q,
             'statusFilter' => $status,
             'recordScopeFilter' => $recordScope,
+            'activeSemester' => self::getActiveSemester(),
+            'schoolYearFilter' => $schoolYearId,
+            'semesterFilter' => $semesterId,
+            'archivedSchoolYears' => $archivedSchoolYears,
+            'archivedSemesters' => $archivedSemesters,
+            'archivedSemestersByYear' => $archivedSemestersByYear,
             'pagination' => [
                 'page' => $page,
                 'pages' => $pages,
@@ -417,6 +616,8 @@ final class AdmissionController
                     'q' => $q,
                     'status' => $status,
                     'record_scope' => $recordScope,
+                    'school_year_id' => $schoolYearId > 0 ? $schoolYearId : '',
+                    'semester_id' => $semesterId > 0 ? $semesterId : '',
                 ],
             ],
         ]);
@@ -431,6 +632,7 @@ final class AdmissionController
             'mode' => 'create',
             'action' => '/admission/students/create',
             'student' => ['name' => '', 'email' => '', 'id_number' => '', 'status' => 'pending'],
+            'activeSemester' => self::getActiveSemester(),
             'error' => null,
         ]);
     }
@@ -469,6 +671,17 @@ final class AdmissionController
             return;
         }
 
+        $activeSemester = self::getActiveSemester();
+        if ($activeSemester === null) {
+            self::renderStudentFormMode('create', 'Set an active semester first before creating students.', [
+                'name' => $name,
+                'email' => $email,
+                'id_number' => $idNumber,
+                'status' => $status,
+            ]);
+            return;
+        }
+
         $pdo = Database::pdo();
         $check = $pdo->prepare("SELECT id FROM students WHERE (email = :email OR id_number = :id_number) AND is_deleted = 0 LIMIT 1");
         $check->execute([
@@ -485,13 +698,14 @@ final class AdmissionController
             return;
         }
 
-        $pdo->prepare("INSERT INTO students (id_number, name, email, status, created_by)
-                       VALUES (:id_number, :name, :email, :status, :created_by)")
+        $pdo->prepare("INSERT INTO students (id_number, name, email, status, semester_id, created_by)
+                       VALUES (:id_number, :name, :email, :status, :semester_id, :created_by)")
             ->execute([
                 ':id_number' => $idNumber === '' ? null : $idNumber,
                 ':name' => $name,
                 ':email' => $email,
                 ':status' => $status,
+                ':semester_id' => (int)$activeSemester['id'],
                 ':created_by' => (int)($_SESSION['user_id'] ?? 0),
             ]);
 
@@ -505,7 +719,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status, semester_id FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -520,6 +734,7 @@ final class AdmissionController
             'mode' => 'edit',
             'action' => '/admission/students/edit',
             'student' => $student,
+            'activeSemester' => self::getActiveSemester(),
             'error' => null,
         ]);
     }
@@ -562,6 +777,31 @@ final class AdmissionController
         }
 
         $pdo = Database::pdo();
+        $currentStudentSt = $pdo->prepare("SELECT semester_id FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $currentStudentSt->execute([':id' => $id]);
+        $currentStudent = $currentStudentSt->fetch();
+        if (!$currentStudent) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Not Found']);
+            return;
+        }
+
+        $semesterId = (int)($currentStudent['semester_id'] ?? 0);
+        if ($semesterId <= 0) {
+            $activeSemester = self::getActiveSemester();
+            if ($activeSemester === null) {
+                self::renderStudentFormMode('edit', 'Set an active semester first before saving this student.', [
+                    'id' => $id,
+                    'name' => $name,
+                    'email' => $email,
+                    'id_number' => $idNumber,
+                    'status' => $status,
+                ]);
+                return;
+            }
+            $semesterId = (int)$activeSemester['id'];
+        }
+
         $check = $pdo->prepare("SELECT id FROM students WHERE (email = :email OR id_number = :id_number) AND id <> :id AND is_deleted = 0 LIMIT 1");
         $check->execute([
             ':email' => $email,
@@ -584,13 +824,15 @@ final class AdmissionController
                            name = :name,
                            email = :email,
                            status = :status,
+                           semester_id = :semester_id,
                            updated_by = :updated_by
-                       WHERE id = :id AND is_deleted = 0")
+                       WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0")
             ->execute([
                 ':id_number' => $idNumber === '' ? null : $idNumber,
                 ':name' => $name,
                 ':email' => $email,
                 ':status' => $status,
+                ':semester_id' => $semesterId,
                 ':updated_by' => (int)($_SESSION['user_id'] ?? 0),
                 ':id' => $id,
             ]);
@@ -860,7 +1102,7 @@ final class AdmissionController
         };
 
         $studentsParams = [];
-        $studentsWhere = "WHERE is_deleted = 0";
+        $studentsWhere = "WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 0";
         $studentsWhere .= $addDateFilter('created_at', $studentsParams);
 
         $studentsTotalSt = Database::pdo()->prepare("SELECT COUNT(*) FROM students {$studentsWhere}");
@@ -884,7 +1126,7 @@ final class AdmissionController
              FROM students s
              INNER JOIN student_exam_scores ses
                ON ses.student_id = s.id AND ses.is_deleted = 0
-             WHERE s.is_deleted = 0" . $addDateFilter('ses.created_at', $scoresParams)
+             WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0" . $addDateFilter('ses.created_at', $scoresParams)
         );
         $studentsWithScoresSt->execute($scoresParams);
         $studentsWithScores = (int)$studentsWithScoresSt->fetchColumn();
@@ -988,6 +1230,143 @@ final class AdmissionController
             'studentStatusCounts' => $studentStatusCounts,
             'examParts' => $examParts,
             'topRecommendations' => $topRecommendations,
+        ]);
+    }
+
+    public static function printReport(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $reportType = trim((string)($_GET['report_type'] ?? 'course_recommendation'));
+        $allowedTypes = ['applicant_list', 'test_results', 'course_recommendation'];
+        if (!in_array($reportType, $allowedTypes, true)) {
+            $reportType = 'course_recommendation';
+        }
+
+        $startDate = self::normalizeDateInput(trim((string)($_GET['start_date'] ?? '')));
+        $endDate = self::normalizeDateInput(trim((string)($_GET['end_date'] ?? '')));
+
+        if ($startDate !== '' && $endDate !== '' && $endDate < $startDate) {
+            $tmp = $startDate;
+            $startDate = $endDate;
+            $endDate = $tmp;
+        }
+
+        $addDateFilter = static function (string $column, array &$params) use ($startDate, $endDate): string {
+            $clause = '';
+            if ($startDate !== '') {
+                $clause .= " AND {$column} >= :start_date";
+                $params[':start_date'] = $startDate . ' 00:00:00';
+            }
+            if ($endDate !== '') {
+                $clause .= " AND {$column} <= :end_date";
+                $params[':end_date'] = $endDate . ' 23:59:59';
+            }
+            return $clause;
+        };
+
+        $studentsParams = [];
+        $studentsWhere = "WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 0";
+        $studentsWhere .= $addDateFilter('created_at', $studentsParams);
+
+        $studentsTotalSt = Database::pdo()->prepare("SELECT COUNT(*) FROM students {$studentsWhere}");
+        $studentsTotalSt->execute($studentsParams);
+        $studentsTotal = (int)$studentsTotalSt->fetchColumn();
+
+        $studentStatusSt = Database::pdo()->prepare("SELECT status, COUNT(*) AS total FROM students {$studentsWhere} GROUP BY status ORDER BY total DESC");
+        $studentStatusSt->execute($studentsParams);
+        $studentStatusCounts = $studentStatusSt->fetchAll();
+
+        $scoresParams = [];
+        $scoresWhere = "WHERE ses.is_deleted = 0";
+        $scoresWhere .= $addDateFilter('ses.created_at', $scoresParams);
+
+        $scoreEntriesSt = Database::pdo()->prepare("SELECT COUNT(*) FROM student_exam_scores ses {$scoresWhere}");
+        $scoreEntriesSt->execute($scoresParams);
+        $scoreEntries = (int)$scoreEntriesSt->fetchColumn();
+
+        $studentsWithScoresSt = Database::pdo()->prepare(
+            "SELECT COUNT(DISTINCT s.id)
+             FROM students s
+             INNER JOIN student_exam_scores ses
+               ON ses.student_id = s.id AND ses.is_deleted = 0
+             WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0" . $addDateFilter('ses.created_at', $scoresParams)
+        );
+        $studentsWithScoresSt->execute($scoresParams);
+        $studentsWithScores = (int)$studentsWithScoresSt->fetchColumn();
+        $studentsWithoutScores = max(0, $studentsTotal - $studentsWithScores);
+
+        $examParams = [];
+        $examWhere = $addDateFilter('ses.created_at', $examParams);
+        $examPartsSt = Database::pdo()->prepare(
+            "SELECT ep.name,
+                    ep.max_score,
+                    COUNT(ses.id) AS entries,
+                    AVG(ses.score) AS avg_score
+             FROM exam_parts ep
+             LEFT JOIN student_exam_scores ses
+               ON ses.exam_part_id = ep.id
+              AND ses.is_deleted = 0
+              {$examWhere}
+             WHERE ep.is_deleted = 0
+             GROUP BY ep.id
+             ORDER BY ep.name"
+        );
+        $examPartsSt->execute($examParams);
+        $examParts = $examPartsSt->fetchAll();
+
+        $studentsWithRecommendationsSt = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    ses.student_id,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ses.student_id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                    ) AS rn
+                FROM student_exam_scores ses
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                INNER JOIN students s
+                    ON s.id = ses.student_id
+                WHERE ses.is_deleted = 0
+                  AND s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0" . $addDateFilter('ses.created_at', $scoresParams) . "
+                GROUP BY ses.student_id
+            )
+            SELECT COUNT(*) FROM ranked WHERE rn = 1"
+        );
+        $studentsWithRecommendationsSt->execute($scoresParams);
+        $studentsWithRecommendations = (int)$studentsWithRecommendationsSt->fetchColumn();
+
+        $reportData = self::getPrintableReportData($reportType, $startDate, $endDate);
+
+        $periodLabel = 'All time';
+        if ($startDate !== '' || $endDate !== '') {
+            $startLabel = $startDate !== '' ? date('M j, Y', strtotime($startDate)) : 'Beginning';
+            $endLabel = $endDate !== '' ? date('M j, Y', strtotime($endDate)) : 'Present';
+            $periodLabel = $startLabel . ' to ' . $endLabel;
+        }
+
+        $activeSemester = self::getActiveSemester();
+        $semesterName = $activeSemester['label'] ?? 'All Semesters';
+
+        View::renderStandalone('admission/reports_print', [
+            'title' => 'Print Report',
+            'reportType' => $reportType,
+            'reportData' => $reportData,
+            'summary' => [
+                'students_total' => $studentsTotal,
+                'score_entries' => $scoreEntries,
+                'students_without_scores' => $studentsWithoutScores,
+                'students_with_recommendations' => $studentsWithRecommendations,
+            ],
+            'studentStatusCounts' => $studentStatusCounts,
+            'examParts' => $examParts,
+            'periodLabel' => $periodLabel,
+            'semesterName' => $semesterName,
         ]);
     }
 
@@ -1221,6 +1600,132 @@ final class AdmissionController
         return $recommendations;
     }
 
+    private static function getPrintableReportData(string $reportType, string $startDate, string $endDate): array
+    {
+        $addDateFilter = static function (string $column, array &$params) use ($startDate, $endDate): string {
+            $clause = '';
+            if ($startDate !== '') {
+                $clause .= " AND {$column} >= :start_date";
+                $params[':start_date'] = $startDate . ' 00:00:00';
+            }
+            if ($endDate !== '') {
+                $clause .= " AND {$column} <= :end_date";
+                $params[':end_date'] = $endDate . ' 23:59:59';
+            }
+            return $clause;
+        };
+
+        if ($reportType === 'applicant_list') {
+            $params = [];
+            $where = "WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0";
+            $where .= $addDateFilter('s.created_at', $params);
+
+            $st = Database::pdo()->prepare(
+                "SELECT s.id_number,
+                        s.name,
+                        s.email,
+                        s.status,
+                        sy.name AS school_year_name,
+                        sem.name AS semester_name,
+                        COUNT(ses.id) AS score_entries
+                 FROM students s
+                 LEFT JOIN semesters sem ON sem.id = s.semester_id
+                 LEFT JOIN school_years sy ON sy.id = sem.school_year_id
+                 LEFT JOIN student_exam_scores ses
+                   ON ses.student_id = s.id
+                  AND ses.is_deleted = 0
+                 {$where}
+                 GROUP BY s.id
+                 ORDER BY s.name ASC"
+            );
+            $st->execute($params);
+            return $st->fetchAll();
+        }
+
+        if ($reportType === 'test_results') {
+            $params = [];
+            $dateFilter = $addDateFilter('ses.created_at', $params);
+            $st = Database::pdo()->prepare(
+                "SELECT s.id_number,
+                        s.name,
+                        s.status,
+                        ROUND(SUM(ses.score), 2) AS total_exam_score,
+                        MAX(ses.created_at) AS exam_date
+                 FROM students s
+                 INNER JOIN student_exam_scores ses
+                    ON ses.student_id = s.id
+                   AND ses.is_deleted = 0
+                 WHERE s.is_deleted = 0
+                   AND COALESCE(s.is_archived, 0) = 0
+                   {$dateFilter}
+                 GROUP BY s.id
+                 ORDER BY exam_date DESC, s.name ASC"
+            );
+            $st->execute($params);
+            return $st->fetchAll();
+        }
+
+        $params = [];
+        $dateFilter = $addDateFilter('ses.created_at', $params);
+        $st = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    s.id,
+                    s.id_number,
+                    s.name,
+                    sy.name AS school_year_name,
+                    sem.name AS semester_name,
+                    c.course_code,
+                    c.course_name,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS final_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY s.id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC, c.course_name ASC
+                    ) AS rn
+                FROM students s
+                INNER JOIN student_exam_scores ses
+                    ON ses.student_id = s.id
+                   AND ses.is_deleted = 0
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id
+                   AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id
+                   AND w.is_deleted = 0
+                INNER JOIN courses c
+                    ON c.id = w.course_id
+                   AND c.is_deleted = 0
+                LEFT JOIN semesters sem
+                    ON sem.id = s.semester_id
+                LEFT JOIN school_years sy
+                    ON sy.id = sem.school_year_id
+                WHERE s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  {$dateFilter}
+                GROUP BY s.id, c.id
+            )
+            SELECT id_number,
+                   name,
+                   school_year_name,
+                   semester_name,
+                   course_code,
+                   course_name,
+                   final_score
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY final_score DESC, name ASC"
+        );
+        $st->execute($params);
+        return array_map(static function (array $row): array {
+            $row['recommendation'] = [
+                'course_code' => (string)$row['course_code'],
+                'course_name' => (string)$row['course_name'],
+                'final_score' => (float)$row['final_score'],
+            ];
+            return $row;
+        }, $st->fetchAll());
+    }
+
     private static function renderStudentFormMode(string $mode, string $error, array $student): void
     {
         View::render('students/form', [
@@ -1228,7 +1733,33 @@ final class AdmissionController
             'mode' => $mode,
             'action' => $mode === 'create' ? '/admission/students/create' : '/admission/students/edit',
             'student' => $student,
+            'activeSemester' => self::getActiveSemester(),
             'error' => $error,
         ]);
+    }
+
+    private static function getActiveSemester(): ?array
+    {
+        try {
+            $st = Database::pdo()->query("
+                SELECT s.id, s.name AS semester_name, sy.name AS school_year_name
+                FROM semesters s
+                INNER JOIN school_years sy ON sy.id = s.school_year_id
+                WHERE s.is_active = 1
+                  AND s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  AND sy.is_deleted = 0
+                  AND COALESCE(sy.is_archived, 0) = 0
+                LIMIT 1
+            ");
+            $row = $st->fetch();
+            if (!$row) {
+                return null;
+            }
+            $row['label'] = trim((string)$row['school_year_name']) . ' - ' . trim((string)$row['semester_name']);
+            return $row;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 }

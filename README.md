@@ -61,8 +61,8 @@ scripts/    Test runner + module test suites
 5. Seed the database (phpMyAdmin / SQL import):
 
    1. Import `database/schema.sql`
-   2. Import `database/setup_seed.sql` (courses, exam parts, weights)
-   3. Optional for local/demo only: import `database/seed.sql` (sample users/students/scores/logs)
+   2. Import `database/setup_seed.sql` (academic year/semester defaults, categories, courses, exam parts, weights)
+   3. Optional for local/demo only: import `database/seed.sql` (sample users/students/scores/logs with linked semesters)
 
 6. Start app from repo root:
 
@@ -122,9 +122,9 @@ You can update these in `database/schema.sql` and `database/seed.sql` (sample da
 
 Use these SQL files in phpMyAdmin:
 
-- `database/schema.sql` -> creates tables + default admin account
-- `database/setup_seed.sql` -> inserts/updates courses, exam parts, and weights
-- `database/seed.sql` -> optional sample/demo data (users, students, scores, logs)
+- `database/schema.sql` -> creates the full current app schema + default admin account
+- `database/setup_seed.sql` -> inserts/updates stable setup data (academic years, semesters, categories, courses, exam parts, weights)
+- `database/seed.sql` -> optional sample/demo data (users, students, scores, logs) linked to academic years and semesters
 
 ### Add a New Course (SQL)
 

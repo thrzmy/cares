@@ -37,8 +37,8 @@ $start = max(1, $page - $window);
 $end = min($pages, $page + $window);
 ?>
 
-<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mt-3">
-  <div class="text-muted small">
+<div class="cares-pagination d-flex flex-wrap gap-2 align-items-center justify-content-between mt-3">
+  <div class="cares-pagination-summary text-muted small">
     Showing <?= e((string)$from) ?>-<?= e((string)$to) ?> of <?= e((string)$total) ?>
   </div>
   <nav aria-label="Pagination">

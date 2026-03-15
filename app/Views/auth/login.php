@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 $success = flash('success');
+$old = $old ?? ['email' => ''];
 ?>
 <div class="row justify-content-center align-items-center auth-shell">
   <div class="col-12 col-md-6 col-lg-5">
@@ -32,7 +33,7 @@ $success = flash('success');
           <?= csrfField() ?>
           <div class="mb-3">
             <label class="form-label">Email</label>
-            <input class="form-control" type="email" name="email" required autocomplete="username">
+            <input class="form-control" type="email" name="email" required autocomplete="username" value="<?= e((string)($old['email'] ?? '')) ?>">
           </div>
 
           <div class="mb-3">

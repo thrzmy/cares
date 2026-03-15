@@ -68,9 +68,6 @@ $formatEntity = static function (string $entity): string {
     <h4 class="fw-bold mb-1">Activity Logs</h4>
     <p class="page-subtitle">Review your recent activity and changes.</p>
   </div>
-  <div class="page-actions">
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission">Back to Dashboard</a>
-  </div>
 </div>
 
 <form class="mb-3" method="get" action="<?= e(BASE_PATH) ?>/admission/logs">

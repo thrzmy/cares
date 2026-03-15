@@ -38,10 +38,10 @@ $router->post('/forgot-password', [AuthController::class, 'forgotPassword']);
 $router->get('/reset-password', [AuthController::class, 'showResetPassword']);
 $router->post('/reset-password', [AuthController::class, 'resetPassword']);
 
-$router->get('/admin', fn() => redirect('/administrator'));
-$router->get('/guidance', fn() => redirect('/admission'));
+$router->get('/admin', fn() => redirect('/administrator/reports'));
+$router->get('/guidance', fn() => redirect('/admission/reports'));
 
-$router->get('/administrator', [AdminController::class, 'dashboard']);
+$router->get('/administrator', fn() => redirect('/administrator/reports'));
 
 $router->get('/administrator/accounts', function () {
     RoleMiddleware::requireRole('administrator');
@@ -101,6 +101,7 @@ $router->get('/administrator/scores/view', [AdminController::class, 'viewScores'
 $router->get('/administrator/results', [AdminController::class, 'results']);
 $router->get('/administrator/logs', [AdminController::class, 'logs']);
 $router->get('/administrator/reports', [AdminController::class, 'reports']);
+$router->get('/administrator/reports/print', [AdminController::class, 'printReport']);
 $router->get('/administrator/profile', [AdminController::class, 'profile']);
 $router->post('/administrator/profile', [AdminController::class, 'updateProfile']);
 $router->post('/administrator/profile/password', [AdminController::class, 'updatePassword']);
@@ -133,13 +134,14 @@ $router->post('/administrator/students/restore', function () {
     AccountsController::restoreStudent();
 });
 
-$router->get('/admission', [AdmissionController::class, 'dashboard']);
+$router->get('/admission', fn() => redirect('/admission/reports'));
 $router->get('/admission/encode', [AdmissionController::class, 'encode']);
 $router->get('/admission/encode/edit', [AdmissionController::class, 'editScores']);
 $router->post('/admission/encode/edit', [AdmissionController::class, 'saveScores']);
 $router->get('/admission/results', [AdmissionController::class, 'results']);
 $router->get('/admission/results/view', [AdmissionController::class, 'viewScores']);
 $router->get('/admission/reports', [AdmissionController::class, 'reports']);
+$router->get('/admission/reports/print', [AdmissionController::class, 'printReport']);
 $router->get('/admission/profile', [AdmissionController::class, 'profile']);
 $router->post('/admission/profile', [AdmissionController::class, 'updateProfile']);
 $router->post('/admission/profile/password', [AdmissionController::class, 'updatePassword']);
@@ -159,8 +161,10 @@ $router->get('/administrator/semesters', [SemesterController::class, 'index']);
 $router->post('/administrator/semesters/store', [SemesterController::class, 'storeSchoolYear']);
 $router->post('/administrator/semesters/update', [SemesterController::class, 'updateSchoolYear']);
 $router->post('/administrator/semesters/archive', [SemesterController::class, 'archiveSchoolYear']);
+$router->post('/administrator/semesters/restore', [SemesterController::class, 'restoreSchoolYear']);
 $router->post('/administrator/semesters/set-active', [SemesterController::class, 'setActive']);
 $router->post('/administrator/semesters/archive-semester', [SemesterController::class, 'archiveSemester']);
+$router->post('/administrator/semesters/restore-semester', [SemesterController::class, 'restoreSemester']);
 
 // ── Matrix Course/Part Management (Admin) ──
 $router->post('/administrator/matrix/add-course', [AdminController::class, 'addCourse']);

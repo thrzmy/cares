@@ -16,6 +16,10 @@ final class SemesterController
 
             $success = flash('success');
             $error = flash('error');
+            $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
+            if (!in_array($recordScope, ['active', 'archived'], true)) {
+                $recordScope = 'active';
+            }
 
             // Get all school years with their semesters
             $allSchoolYears = $pdo->query("
@@ -64,7 +68,7 @@ final class SemesterController
                 LIMIT 1
             ")->fetch();
 
-            // Pagination for archived years only
+            // Pagination for archived years only when viewing archives
             $total = count($archivedSchoolYears);
             $perPage = 6;
             $page = max(1, (int)($_GET['page'] ?? 1));
@@ -76,6 +80,10 @@ final class SemesterController
             $from = $total > 0 ? $offset + 1 : 0;
             $to = min($offset + $perPage, $total);
 
+            if ($recordScope !== 'archived') {
+                $archivedSlice = [];
+            }
+
             View::render('admin/semesters', [
                 'title' => 'Academic Year and Semester',
                 'activeSchoolYear' => $activeSchoolYear,
@@ -83,6 +91,7 @@ final class SemesterController
                 'hasActiveSchoolYear' => $hasActiveSchoolYear,
                 'semestersByYear' => $semestersByYear,
                 'activeSemester' => $activeSemester,
+                'recordScopeFilter' => $recordScope,
                 'success' => $success,
                 'error' => $error,
                 'pagination' => [
@@ -93,7 +102,9 @@ final class SemesterController
                     'from' => $from,
                     'to' => $to,
                     'basePath' => '/administrator/semesters',
-                    'query' => [],
+                    'query' => [
+                        'record_scope' => $recordScope,
+                    ],
                 ],
             ]);
         }
@@ -105,6 +116,7 @@ final class SemesterController
                 'hasActiveSchoolYear' => false,
                 'semestersByYear' => [],
                 'activeSemester' => null,
+                'recordScopeFilter' => 'active',
                 'success' => null,
                 'error' => 'Database error: ' . (APP_DEBUG ? $e->getMessage() : 'Please contact administrator.'),
                 'pagination' => ['page' => 1, 'pages' => 1, 'total' => 0, 'perPage' => 10, 'from' => 0, 'to' => 0, 'basePath' => '', 'query' => []]
@@ -256,6 +268,24 @@ final class SemesterController
 
         $pdo->beginTransaction();
         try {
+            // Legacy safety net: if older student records were created before
+            // semester assignment was enforced, tie unassigned active students
+            // to a semester in this academic year so the archive includes them.
+            $pdo->prepare("
+                UPDATE students
+                SET semester_id = (
+                    SELECT s.id
+                    FROM semesters s
+                    WHERE s.school_year_id = :sy_id
+                      AND s.is_deleted = 0
+                    ORDER BY s.is_active DESC, s.id ASC
+                    LIMIT 1
+                )
+                WHERE semester_id IS NULL
+                  AND is_deleted = 0
+                  AND COALESCE(is_archived, 0) = 0
+            ")->execute([':sy_id' => $id]);
+
             // Archive and deactivate SY
             $pdo->prepare("UPDATE school_years SET is_archived = 1, is_active = 0 WHERE id = :id")->execute([':id' => $id]);
 
@@ -323,13 +353,70 @@ final class SemesterController
 
             $pdo->commit();
 
-            $label = $semester['sy_name'] . ' â€” ' . $semester['name'];
+            $label = $semester['sy_name'] . ' - ' . $semester['name'];
             Logger::log(currentUserId(), 'SET_ACTIVE_SEMESTER', 'semesters', $semesterId, "Set active: {$label}");
             flash('success', "Active semester set to: {$label}");
         }
         catch (\Throwable $e) {
             $pdo->rollBack();
             flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to set active semester.');
+        }
+
+        redirect('/administrator/semesters');
+    }
+
+    public static function restoreSchoolYear(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('administrator');
+
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            flash('error', 'Invalid academic year.');
+            redirect('/administrator/semesters');
+        }
+
+        $pdo = Database::pdo();
+        $sy = $pdo->prepare("SELECT id, name FROM school_years WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $sy->execute([':id' => $id]);
+        $schoolYear = $sy->fetch();
+
+        if (!$schoolYear) {
+            flash('error', 'Academic year not found.');
+            redirect('/administrator/semesters');
+        }
+
+        $activeYearSt = $pdo->prepare("SELECT id FROM school_years WHERE is_deleted = 0 AND is_archived = 0 AND id <> :id LIMIT 1");
+        $activeYearSt->execute([':id' => $id]);
+        if ($activeYearSt->fetch()) {
+            flash('error', 'Archive the current academic year first before restoring another one.');
+            redirect('/administrator/semesters');
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare("UPDATE school_years SET is_archived = 0, is_active = 0 WHERE id = :id")
+                ->execute([':id' => $id]);
+
+            $pdo->prepare("UPDATE semesters SET is_archived = 0, is_active = 0 WHERE school_year_id = :sy_id AND is_deleted = 0")
+                ->execute([':sy_id' => $id]);
+
+            $pdo->prepare("
+                UPDATE students
+                SET is_archived = 0
+                WHERE semester_id IN (
+                    SELECT id FROM semesters WHERE school_year_id = :sy_id AND is_deleted = 0
+                )
+                  AND is_deleted = 0
+            ")->execute([':sy_id' => $id]);
+
+            $pdo->commit();
+
+            Logger::log(currentUserId(), 'RESTORE_ACADEMIC_YEAR', 'school_years', $id, "Restored academic year and all its records: {$schoolYear['name']}");
+            flash('success', "Academic year {$schoolYear['name']} and its records were restored.");
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to restore academic year.');
         }
 
         redirect('/administrator/semesters');
@@ -378,13 +465,66 @@ final class SemesterController
 
             $pdo->commit();
 
-            $label = $semester['sy_name'] . ' â€” ' . $semester['name'];
+            $label = $semester['sy_name'] . ' - ' . $semester['name'];
             Logger::log(currentUserId(), 'ARCHIVE_SEMESTER', 'semesters', $semesterId, "Archived semester and its students: {$label}");
             flash('success', "Semester {$label} and all its associated students have been archived.");
         }
         catch (\Throwable $e) {
             $pdo->rollBack();
             flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to archive semester.');
+        }
+
+        redirect('/administrator/semesters');
+    }
+
+    public static function restoreSemester(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('administrator');
+
+        $semesterId = (int)($_POST['semester_id'] ?? 0);
+        if ($semesterId <= 0) {
+            flash('error', 'Invalid semester.');
+            redirect('/administrator/semesters');
+        }
+
+        $pdo = Database::pdo();
+        $sem = $pdo->prepare("
+            SELECT s.id, s.name, sy.name AS sy_name, sy.is_archived AS sy_archived
+            FROM semesters s
+            JOIN school_years sy ON sy.id = s.school_year_id
+            WHERE s.id = :id AND s.is_deleted = 0
+            LIMIT 1
+        ");
+        $sem->execute([':id' => $semesterId]);
+        $semester = $sem->fetch();
+
+        if (!$semester) {
+            flash('error', 'Semester not found.');
+            redirect('/administrator/semesters');
+        }
+
+        if ((int)$semester['sy_archived'] === 1) {
+            flash('error', 'Restore the academic year first before restoring its semester.');
+            redirect('/administrator/semesters');
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare("UPDATE semesters SET is_archived = 0, is_active = 0 WHERE id = :id")
+                ->execute([':id' => $semesterId]);
+
+            $pdo->prepare("UPDATE students SET is_archived = 0 WHERE semester_id = :sem_id AND is_deleted = 0")
+                ->execute([':sem_id' => $semesterId]);
+
+            $pdo->commit();
+
+            $label = $semester['sy_name'] . ' - ' . $semester['name'];
+            Logger::log(currentUserId(), 'RESTORE_SEMESTER', 'semesters', $semesterId, "Restored semester and its students: {$label}");
+            flash('success', "Semester {$label} and its students were restored.");
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to restore semester.');
         }
 
         redirect('/administrator/semesters');

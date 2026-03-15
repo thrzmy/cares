@@ -5,13 +5,13 @@ declare(strict_types=1);
 // $courses, $groupedParts, $weightsMap, $success, $error
 ?>
 
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+<div class="page-header mb-3">
     <div>
-        <h2 class="h3 mb-0 text-gray-800 font-cinzel text-maroon fw-bold">Matrix Configuration</h2>
-        <p class="text-muted small mb-0 mt-1">Configure exam part weights per course and set max scores.</p>
+        <div class="page-kicker">Administrator</div>
+        <h4 class="fw-bold mb-1">Matrix Configuration</h4>
+        <p class="page-subtitle">Configure exam part weights per course and set max scores.</p>
     </div>
-
-    <div class="d-flex gap-2">
+    <div class="page-actions d-flex gap-2 flex-wrap">
         <button type="button" class="btn btn-outline-primary d-flex align-items-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#addExamPartModal">
             <i class="fa-solid fa-file-circle-plus"></i> Add Exam Part
         </button>
@@ -44,9 +44,13 @@ declare(strict_types=1);
         </h6>
     </div>
     <div class="card-body p-0">
-        <div class="table-responsive">
+        <div class="matrix-scroll-hint px-4 pt-3 small text-muted d-md-none">
+            Swipe left or right to view the full matrix.
+        </div>
+        <div class="table-responsive matrix-table-wrap">
             <form action="<?= e(BASE_PATH) ?>/administrator/matrix" method="POST" id="matrixForm">
                 <?= csrfField() ?>
+                <input type="hidden" name="page" value="<?= e((string)(($pagination['page'] ?? 1))) ?>">
 
                 <table class="table table-bordered table-hover m-0 matrix-table align-middle">
                     <thead class="table-light">
@@ -55,7 +59,7 @@ declare(strict_types=1);
                             <th class="text-center bg-light" style="width: 60px;">Action</th>
 
                             <?php foreach ($groupedParts as $group): ?>
-                                <th colspan="<?= count($group['parts']) ?>" class="text-center bg-light text-maroon border-start border-end" style="border-bottom: 2px solid var(--cares-maroon-light);">
+                                <th colspan="<?= count($group['parts']) ?>" class="text-center bg-light text-maroon border-start border-end matrix-group-heading" style="border-bottom: 2px solid var(--cares-maroon-light);">
                                     <?= e($group['category_name']) ?>
                                 </th>
                             <?php endforeach; ?>
@@ -67,13 +71,13 @@ declare(strict_types=1);
                             <th class="bg-light"></th>
                             <?php foreach ($groupedParts as $group): ?>
                                 <?php foreach ($group['parts'] as $part): ?>
-                                    <th class="text-center bg-light px-2" title="<?= e($part['name']) ?>" style="min-width: 90px; vertical-align: bottom;">
-                                        <div class="small fw-semibold text-truncate text-dark mb-2" style="max-width: 90px; margin: 0 auto;"><?= e($part['name']) ?></div>
+                                    <th class="text-center bg-light px-2 matrix-part-col" title="<?= e($part['name']) ?>" style="vertical-align: bottom;">
+                                        <div class="small fw-semibold text-dark mb-2 matrix-part-label"><?= e($part['name']) ?></div>
                                         <input type="number"
                                                name="max_scores[<?= $part['id'] ?>]"
                                                value="<?= (float)$part['max_score'] ?>"
                                                class="form-control form-control-sm text-center mx-auto shadow-sm"
-                                               style="width: 70px; height: 30px; font-size: 0.8rem; font-weight: 600; color: var(--cares-maroon);"
+                                               style="height: 30px; font-size: 0.8rem; font-weight: 600; color: var(--cares-maroon);"
                                                min="0" step="0.01" required>
                                     </th>
                                 <?php endforeach; ?>
@@ -115,12 +119,12 @@ declare(strict_types=1);
                                         <?php
                                             $weight = $weightsMap[$course['id']][$part['id']] ?? 0.00;
                                         ?>
-                                        <td class="text-center px-1">
+                                        <td class="text-center px-1 matrix-part-col">
                                             <input type="number"
                                                    name="weights[<?= $course['id'] ?>][<?= $part['id'] ?>]"
                                                    value="<?= number_format((float)$weight, 2, '.', '') ?>"
                                                    class="form-control form-control-sm text-center mx-auto weight-input <?= (float)$weight > 0 ? 'has-weight' : '' ?>"
-                                                   style="width: 70px; height: 32px;"
+                                                   style="height: 32px;"
                                                    min="0" max="100" step="0.01" tabindex="1">
                                         </td>
                                     <?php endforeach; ?>
@@ -142,6 +146,11 @@ declare(strict_types=1);
         </button>
     </div>
 </div>
+
+<?php
+$pagination = $pagination ?? null;
+require __DIR__ . '/../partials/pagination.php';
+?>
 
 <!-- Add Course Modal -->
 <div class="modal fade" id="addCourseModal" tabindex="-1" aria-labelledby="addCourseModalLabel" aria-hidden="true">

@@ -9,10 +9,10 @@ final class AuthController
         if (!empty($_SESSION['user_id'])) {
             $role = (string)($_SESSION['role'] ?? '');
             if ($role === 'administrator') {
-                redirect('/administrator');
+                redirect('/administrator/reports');
             }
             if ($role === 'admission') {
-                redirect('/admission');
+                redirect('/admission/reports');
             }
             redirect('/');
         }
@@ -20,6 +20,7 @@ final class AuthController
         View::render('auth/login', [
             'title' => 'Login',
             'error' => null,
+            'old' => ['email' => ''],
         ]);
     }
 
@@ -34,6 +35,7 @@ final class AuthController
             View::render('auth/login', [
                 'title' => 'Login',
                 'error' => 'Please enter your email and password.',
+                'old' => ['email' => $email],
             ]);
             return;
         }
@@ -52,6 +54,7 @@ final class AuthController
             View::render('auth/login', [
                 'title' => 'Login',
                 'error' => 'Invalid email or password.',
+                'old' => ['email' => $email],
             ]);
             return;
         }
@@ -61,6 +64,7 @@ final class AuthController
             View::render('auth/login', [
                 'title' => 'Login',
                 'error' => 'Account is temporarily locked. Please try again later.',
+                'old' => ['email' => $email],
             ]);
             return;
         }
@@ -69,6 +73,7 @@ final class AuthController
             View::render('auth/login', [
                 'title' => 'Login',
                 'error' => 'Please verify your email before logging in.',
+                'old' => ['email' => $email],
             ]);
             return;
         }
@@ -81,6 +86,7 @@ final class AuthController
             View::render('auth/login', [
                 'title' => 'Login',
                 'error' => $msg,
+                'old' => ['email' => $email],
             ]);
             return;
         }
@@ -89,6 +95,7 @@ final class AuthController
             View::render('auth/login', [
                 'title' => 'Login',
                 'error' => 'Account is disabled. Please contact the administrator.',
+                'old' => ['email' => $email],
             ]);
             return;
         }
@@ -119,6 +126,7 @@ final class AuthController
             View::render('auth/login', [
                 'title' => 'Login',
                 'error' => $errorMsg,
+                'old' => ['email' => $email],
             ]);
             return;
         }
@@ -146,10 +154,10 @@ final class AuthController
 
         // Role redirects
         if ($user['role'] === 'administrator') {
-            redirect('/administrator');
+            redirect('/administrator/reports');
         }
         if ($user['role'] === 'admission') {
-            redirect('/admission');
+            redirect('/admission/reports');
         }
 
         $_SESSION = [];
@@ -157,6 +165,7 @@ final class AuthController
         View::render('auth/login', [
             'title' => 'Login',
             'error' => 'Your account role is not allowed to access this system.',
+            'old' => ['email' => $email],
         ]);
     }
 
@@ -182,10 +191,10 @@ final class AuthController
         if (!empty($_SESSION['user_id'])) {
             $role = (string)($_SESSION['role'] ?? '');
             if ($role === 'administrator') {
-                redirect('/administrator');
+                redirect('/administrator/reports');
             }
             if ($role === 'admission') {
-                redirect('/admission');
+                redirect('/admission/reports');
             }
             redirect('/');
         }
@@ -308,7 +317,7 @@ final class AuthController
                 redirect('/administrator');
             }
             if ($role === 'admission') {
-                redirect('/admission');
+                redirect('/admission/reports');
             }
             redirect('/');
         }
@@ -552,7 +561,7 @@ final class AuthController
             redirect('/administrator');
         }
         if ($role === 'admission') {
-            redirect('/admission');
+            redirect('/admission/reports');
         }
 
         redirect('/login');
@@ -566,7 +575,7 @@ final class AuthController
                 redirect('/administrator');
             }
             if ($role === 'admission') {
-                redirect('/admission');
+                redirect('/admission/reports');
             }
             redirect('/');
         }
@@ -650,7 +659,7 @@ final class AuthController
                 redirect('/administrator');
             }
             if ($role === 'admission') {
-                redirect('/admission');
+                redirect('/admission/reports');
             }
             redirect('/');
         }

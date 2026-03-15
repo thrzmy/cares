@@ -11,342 +11,507 @@ $semesterName = $semesterName ?? 'All Semesters';
 
 $reportTitles = [
     'applicant_list' => 'Applicant List Report',
-    'test_results' => 'Admission Test Results Report',
-    'course_recommendation' => 'Intelligent Course Recommendation Report',
+    'test_results' => 'Admission Test Result Report',
+    'course_recommendation' => 'Course Recommendation Report',
 ];
+
+$displayStudentName = static function (array $row): string {
+    $fullName = trim((string)($row['name'] ?? ''));
+    if ($fullName !== '') {
+        return $fullName;
+    }
+
+    $last = trim((string)($row['last_name'] ?? ''));
+    $first = trim((string)($row['first_name'] ?? ''));
+    $middle = trim((string)($row['middle_name'] ?? ''));
+    return trim($last . ($last !== '' ? ', ' : '') . $first . ($middle !== '' ? ' ' . $middle : ''));
+};
+
+$displayAcademicLabel = static function (array $row): string {
+    $schoolYear = trim((string)($row['school_year_name'] ?? ''));
+    $semester = trim((string)($row['semester_name'] ?? ''));
+    if ($schoolYear !== '' && $semester !== '') {
+        return $schoolYear . ' - ' . $semester;
+    }
+    if ($schoolYear !== '') {
+        return $schoolYear;
+    }
+    if ($semester !== '') {
+        return $semester;
+    }
+    return 'Not set';
+};
+
+$testedCount = max(0, (int)($summary['students_total'] ?? 0) - (int)($summary['students_without_scores'] ?? 0));
+$reportTitle = $reportTitles[$reportType] ?? 'Print Report';
+
+$sigStmt = Database::pdo()->prepare("SELECT name FROM users WHERE id = :id");
+$sigStmt->execute([':id' => currentUserId()]);
+$currentUser = (string)($sigStmt->fetchColumn() ?: 'Admission Personnel');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($reportTitles[$reportType] ?? 'Print Report') ?></title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title><?= e($reportTitle) ?></title>
     <style>
         :root {
-            --maroon: #800000;
-            --dark: #212529;
-            --muted: #6c757d;
-            --border: #dee2e6;
-        }
-        body {
-            font-family: 'Inter', sans-serif;
-            color: var(--dark);
-            margin: 0;
-            padding: 0;
-            background-color: #fff;
-            font-size: 10pt;
-            line-height: 1.4;
+            --cares-maroon: #6f1119;
+            --cares-maroon-soft: #f7ecee;
+            --cares-gold: #c79a3b;
+            --cares-ink: #1f2937;
+            --cares-muted: #667085;
+            --cares-line: #d9dee7;
+            --cares-surface: #f8fafc;
         }
 
         @page {
             size: A4 portrait;
-            margin: 15mm 15mm 20mm 15mm;
+            margin: 14mm 14mm 18mm 14mm;
         }
 
-        .print-container {
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        body {
+            margin: 0;
+            color: var(--cares-ink);
+            font: 10pt/1.45 "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: #fff;
+        }
+
+        .print-shell {
             width: 100%;
             max-width: 210mm;
             margin: 0 auto;
-            position: relative;
+        }
+
+        .no-print {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .print-button {
+            border: 0;
+            border-radius: 999px;
+            background: var(--cares-maroon);
+            color: #fff;
+            padding: 10px 18px;
+            font: 600 9pt/1 "Segoe UI", sans-serif;
+            cursor: pointer;
         }
 
         .report-header {
-            text-align: center;
-            border-bottom: 2px solid var(--maroon);
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-        }
-        .header-logo {
-            width: 60px;
-            height: auto;
-        }
-        .header-text h1 {
-            font-size: 14pt;
-            font-weight: 700;
-            margin: 0 0 4px 0;
-            color: var(--maroon);
-            text-transform: uppercase;
-        }
-        .header-text h2 {
-            font-size: 11pt;
-            font-weight: 600;
-            margin: 0 0 2px 0;
-        }
-        .header-text p {
-            font-size: 9pt;
-            margin: 0;
-            color: var(--muted);
+            border: 1px solid var(--cares-line);
+            border-top: 6px solid var(--cares-maroon);
+            border-radius: 18px;
+            padding: 18px 20px;
+            background:
+                linear-gradient(135deg, rgba(111, 17, 25, 0.05), rgba(199, 154, 59, 0.05)),
+                #fff;
+            margin-bottom: 16px;
         }
 
-        .metadata-section {
+        .report-brand {
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            margin-bottom: 25px;
+            gap: 16px;
+        }
+
+        .brand-logo {
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+            flex: 0 0 auto;
+        }
+
+        .brand-copy {
+            flex: 1 1 auto;
+            text-align: center;
+        }
+
+        .brand-copy h1 {
+            margin: 0;
+            font: 700 18pt/1.15 Georgia, "Times New Roman", serif;
+            color: var(--cares-maroon);
+            letter-spacing: 0.2px;
+        }
+
+        .brand-copy p {
+            margin: 4px 0 0;
+            color: var(--cares-muted);
             font-size: 9pt;
         }
-        .metadata-group {
+
+        .report-kicker {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--cares-line);
             display: flex;
-            flex-direction: column;
-            gap: 2px;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-end;
         }
-        .metadata-label {
-            font-weight: 600;
-            color: var(--muted);
+
+        .report-kicker-title {
+            margin: 0;
+            font: 700 13pt/1.2 Georgia, "Times New Roman", serif;
+            color: var(--cares-ink);
+        }
+
+        .report-kicker-subtitle {
+            margin: 4px 0 0;
+            color: var(--cares-muted);
+            font-size: 8.5pt;
+        }
+
+        .meta-grid,
+        .summary-grid {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .meta-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .summary-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .meta-card,
+        .summary-card {
+            border: 1px solid var(--cares-line);
+            border-radius: 14px;
+            background: #fff;
+            padding: 10px 12px;
+        }
+
+        .meta-label,
+        .summary-label {
+            color: var(--cares-muted);
             text-transform: uppercase;
-            font-size: 7.5pt;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
+            font-size: 7.2pt;
+            font-weight: 700;
+        }
+
+        .meta-value {
+            margin-top: 4px;
+            font-size: 9.5pt;
+            font-weight: 600;
+        }
+
+        .summary-value {
+            margin-top: 6px;
+            font-size: 17pt;
+            line-height: 1;
+            font-weight: 700;
+            color: var(--cares-maroon);
+        }
+
+        .section {
+            margin-bottom: 14px;
         }
 
         .section-title {
-            font-size: 11pt;
-            font-weight: 700;
-            color: var(--maroon);
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 5px;
-            margin-top: 20px;
-            margin-bottom: 15px;
+            margin: 0 0 8px;
+            font: 700 11pt/1.2 Georgia, "Times New Roman", serif;
+            color: var(--cares-maroon);
+        }
+
+        .section-panel {
+            border: 1px solid var(--cares-line);
+            border-radius: 14px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .badge-list {
+            padding: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--cares-line);
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: var(--cares-surface);
+            font-size: 8.5pt;
+        }
+
+        .status-chip strong {
+            color: var(--cares-maroon);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            font-size: 9pt;
         }
-        th, td {
-            border: 1px solid var(--border);
-            padding: 6px 8px;
+
+        th,
+        td {
+            padding: 9px 10px;
+            border-bottom: 1px solid var(--cares-line);
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--cares-surface);
+            color: #475467;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-size: 7.6pt;
+            font-weight: 700;
             text-align: left;
         }
-        th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 8pt;
+
+        tbody tr:nth-child(even) td {
+            background: #fcfcfd;
         }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .fw-bold { font-weight: 700; }
-        .text-muted { color: var(--muted); }
+
+        .cell-title {
+            font-weight: 700;
+            color: var(--cares-ink);
+        }
+
+        .cell-subtitle {
+            margin-top: 3px;
+            color: var(--cares-muted);
+            font-size: 8.2pt;
+        }
+
+        .pill-score {
+            display: inline-block;
+            min-width: 74px;
+            text-align: center;
+            border-radius: 999px;
+            background: var(--cares-maroon-soft);
+            border: 1px solid rgba(111, 17, 25, 0.14);
+            color: var(--cares-maroon);
+            padding: 6px 10px;
+            font-weight: 700;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .empty-state {
+            padding: 20px;
+            text-align: center;
+            color: var(--cares-muted);
+        }
 
         .report-footer {
-            margin-top: 40px;
+            margin-top: 18px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            font-size: 9pt;
-        }
-        .signature-block {
-            width: 200px;
-            text-align: center;
-        }
-        .signature-line {
-            border-bottom: 1px solid var(--dark);
-            margin-bottom: 5px;
-            height: 30px;
+            gap: 16px;
         }
 
-        .chart-bar-container {
-            width: 100px;
-            height: 12px;
-            background: #eee;
-            border-radius: 6px;
-            overflow: hidden;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 5px;
+        .prepared-by {
+            min-width: 220px;
         }
-        .chart-bar {
-            height: 100%;
-            background: var(--maroon);
+
+        .signature-line {
+            height: 26px;
+            border-bottom: 1px solid var(--cares-ink);
+            margin-bottom: 6px;
+        }
+
+        .footer-note {
+            color: var(--cares-muted);
+            font-size: 8pt;
+            text-align: right;
         }
 
         @media print {
-            .no-print { display: none !important; }
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .no-print {
+                display: none !important;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="print-container">
-        <div class="no-print" style="text-align: right; margin-bottom: 10px;">
-            <button onclick="window.print()" style="padding: 8px 16px; background: var(--maroon); color: #fff; border: none; border-radius: 4px; cursor: pointer;">Print to PDF</button>
+    <div class="print-shell">
+        <div class="no-print">
+            <button class="print-button" onclick="window.print()">Print to PDF</button>
         </div>
 
-        <div class="report-header">
-            <img src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="CCT Logo" class="header-logo">
-            <div class="header-text">
-                <h1>City College of Tagaytay</h1>
-                <h2>Admission and Recommendation System</h2>
-                <p><?= e($reportTitles[$reportType]) ?></p>
-            </div>
-            <img src="<?= e(BASE_PATH) ?>/assets/img/scs_logo.png" alt="SCS Logo" class="header-logo">
-        </div>
-
-        <div class="metadata-section">
-            <div class="metadata-group">
-                <span class="metadata-label">Reporting Period</span>
-                <span class="metadata-value"><?= e((string)$periodLabel) ?></span>
-            </div>
-            <div class="metadata-group">
-                <span class="metadata-label">Academic Filter</span>
-                <span class="metadata-value"><?= e((string)$semesterName) ?></span>
-            </div>
-            <div class="metadata-group" style="text-align: right;">
-                <span class="metadata-label">Date Generated</span>
-                <span class="metadata-value"><?= e(date('F j, Y')) ?></span>
-            </div>
-        </div>
-
-        <div class="section-title">Summary Statistics</div>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
-            <div style="border: 1px solid #ddd; padding: 10px; border-radius: 4px; text-align: center;">
-                <div style="font-size: 7.5pt; text-transform: uppercase; color: #666;">Applicants</div>
-                <div style="font-size: 14pt; font-weight: 700;"><?= e((string)($summary['students_total'] ?? 0)) ?></div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 10px; border-radius: 4px; text-align: center;">
-                <div style="font-size: 7.5pt; text-transform: uppercase; color: #666;">Tested</div>
-                <div style="font-size: 14pt; font-weight: 700;"><?= e((string)(($summary['students_total'] ?? 0) - ($summary['students_without_scores'] ?? 0))) ?></div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 10px; border-radius: 4px; text-align: center;">
-                <div style="font-size: 7.5pt; text-transform: uppercase; color: #666;">Recommended</div>
-                <div style="font-size: 14pt; font-weight: 700;"><?= e((string)($summary['students_with_recommendations'] ?? 0)) ?></div>
-            </div>
-            <div style="border: 1px solid #ddd; padding: 10px; border-radius: 4px; text-align: center;">
-                <div style="font-size: 7.5pt; text-transform: uppercase; color: #666;">Score Count</div>
-                <div style="font-size: 14pt; font-weight: 700;"><?= e((string)($summary['score_entries'] ?? 0)) ?></div>
-            </div>
-        </div>
-
-        <div class="section-title">Report Data Content</div>
-        <table>
-            <thead>
-                <?php if ($reportType === 'applicant_list'): ?>
-                    <tr>
-                        <th style="width: 20%;">Student Information</th>
-                        <th style="width: 15%;">App Number</th>
-                        <th>Email</th>
-                        <th style="width: 20%;">App Status</th>
-                        <th style="width: 25%;">Scoring Data</th>
-                    </tr>
-                <?php elseif ($reportType === 'test_results'): ?>
-                    <tr>
-                        <th style="width: 15%;">Student ID</th>
-                        <th>Name</th>
-                        <th class="text-center" style="width: 15%;">Score</th>
-                        <th class="text-center" style="width: 15%;">Status</th>
-                        <th class="text-center" style="width: 20%;">Exam Date</th>
-                    </tr>
-                <?php elseif ($reportType === 'course_recommendation'): ?>
-                    <tr>
-                        <th style="width: 15%;">Student ID</th>
-                        <th>Full Name</th>
-                        <th style="width: 20%;">SHS Strand / Aligned</th>
-                        <th>Recommended Program</th>
-                        <th class="text-center" style="width: 15%;">Overall %</th>
-                    </tr>
-                <?php elseif ($reportType === 'enrollment_summary'): ?>
-                    <tr>
-                        <th style="width: 15%;">Code</th>
-                        <th>Program/Course Name</th>
-                        <th class="text-center" style="width: 15%;">Rec.</th>
-                        <th class="text-center" style="width: 15%;">Adm.</th>
-                        <th class="text-center" style="width: 25%;">Visualization (Rec vs Adm)</th>
-                    </tr>
-                <?php endif; ?>
-            </thead>
-            <tbody>
-                <?php if (!empty($reportData)): ?>
-                    <?php foreach ($reportData as $row): ?>
-                        <tr>
-                            <?php if ($reportType === 'applicant_list'): ?>
-                                <td class="fw-bold" style="text-transform: uppercase;"><?= e($row['last_name'] . ', ' . $row['first_name'] . (!empty($row['middle_name']) ? ' ' . $row['middle_name'] : '')) ?></td>
-                                <td class="fw-bold"><?= e((string)($row['id_number'] ?? '-')) ?></td>
-                                <td><?= e($row['email']) ?></td>
-                                <td><?= e(ucwords((string)($row['application_type'] ?? 'New Student'))) ?></td>
-                                <td style="font-size: 8pt;">
-                                    <strong>1st:</strong> <?= e($row['first_choice_code'] ?? 'N/A') ?>
-                                    <strong>2nd:</strong> <?= e($row['second_choice_code'] ?? 'N/A') ?><br>
-                                    <strong>Strand:</strong> <?= e($row['shs_strand'] ?? 'N/A') ?>
-                                    <strong>GPA:</strong> <?= e($row['gpa'] ?? 'N/A') ?>
-                                </td>
-
-                            <?php elseif ($reportType === 'test_results'): ?>
-                                <td class="fw-bold"><?= e($row['id_number']) ?></td>
-                                <td style="text-transform: uppercase;"><?= e($row['last_name'] . ', ' . $row['first_name'] . (!empty($row['middle_name']) ? ' ' . $row['middle_name'] : '')) ?></td>
-                                <td class="text-center fw-bold"><?= e((string)$row['total_exam_score']) ?></td>
-                                <td class="text-center"><?= e(ucfirst($row['status'])) ?></td>
-                                <td class="text-center"><?= $row['exam_date'] ? date('M j, Y', strtotime($row['exam_date'])) : '---' ?></td>
-
-                            <?php elseif ($reportType === 'course_recommendation'): ?>
-                                <td class="fw-bold"><?= e($row['id_number']) ?></td>
-                                <td style="text-transform: uppercase;"><?= e($row['last_name'] . ', ' . $row['first_name'] . (!empty($row['middle_name']) ? ' ' . $row['middle_name'] : '')) ?></td>
-                                <td>
-                                    <?= e($row['shs_strand']) ?>
-                                    <?php if (isset($row['recommendation']['is_aligned_strand'])): ?>
-                                        <span style="margin-left: 5px; color: <?= $row['recommendation']['is_aligned_strand'] ? '#198754' : '#dc3545' ?>;">
-                                            <?= $row['recommendation']['is_aligned_strand'] ? 'âœ“' : 'âœ—' ?>
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <strong><?= e($row['recommendation']['course_code'] ?? 'N/A') ?></strong><br>
-                                    <span class="text-muted" style="font-size: 8pt;"><?= e($row['recommendation']['course_name'] ?? 'No match') ?></span>
-                                </td>
-                                <td class="text-center fw-bold"><?= number_format((float)($row['recommendation']['final_score'] ?? 0), 1) ?>%</td>
-
-                            <?php elseif ($reportType === 'enrollment_summary'): ?>
-                                <td class="fw-bold"><?= e($row['course_code']) ?></td>
-                                <td><?= e($row['course_name']) ?></td>
-                                <td class="text-center fw-bold"><?= e((string)$row['recommended']) ?></td>
-                                <td class="text-center fw-bold"><?= e((string)$row['accepted']) ?></td>
-                                <td class="text-center">
-                                    <?php
-                                    $percent = $row['recommended'] > 0 ? ($row['accepted'] / $row['recommended']) * 100 : 0;
-                                    ?>
-                                    <div class="chart-bar-container">
-                                        <div class="chart-bar" style="width: <?= $percent ?>%;"></div>
-                                    </div>
-                                    <span style="font-size: 8pt;"><?= round($percent) ?>%</span>
-                                </td>
-                            <?php endif; ?>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr><td colspan="10" class="text-center text-muted py-5">No records found for the selected period.</td></tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-
-        <div class="report-footer">
-            <div class="signature-block">
-                <div class="signature-line"></div>
-                <div style="font-weight: 600;">
-                    <?php
-                         $sigStmt = Database::pdo()->prepare("SELECT name FROM users WHERE id = :id");
-                         $sigStmt->execute([':id' => currentUserId()]);
-                         $currentUser = $sigStmt->fetchColumn() ?: 'Admission Personnel';
-                         echo e($currentUser);
-                    ?>
+        <header class="report-header">
+            <div class="report-brand">
+                <img src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="CCT Logo" class="brand-logo">
+                <div class="brand-copy">
+                    <h1>City College of Tagaytay</h1>
+                    <p>Course Admission and Recommendation System</p>
                 </div>
-                <div class="text-muted" style="font-size: 8pt;">Admission Personnel / Prepared By</div>
+                <img src="<?= e(BASE_PATH) ?>/assets/img/scs_logo.png" alt="SCS Logo" class="brand-logo">
             </div>
-            <div class="text-muted" style="text-align: right; font-size: 8pt;">
-                City College of Tagaytay Admission System<br>
-                Generated on <?= date('Y-m-d H:i:s') ?><br>
-                Page 1 of 1
+            <div class="report-kicker">
+                <div>
+                    <h2 class="report-kicker-title"><?= e($reportTitle) ?></h2>
+                    <p class="report-kicker-subtitle">Generated from the admission reporting module.</p>
+                </div>
+                <div class="meta-label">CAReS Print Output</div>
             </div>
-        </div>
+        </header>
+
+        <section class="meta-grid">
+            <div class="meta-card">
+                <div class="meta-label">Reporting Period</div>
+                <div class="meta-value"><?= e((string)$periodLabel) ?></div>
+            </div>
+            <div class="meta-card">
+                <div class="meta-label">Active Term</div>
+                <div class="meta-value"><?= e((string)$semesterName) ?></div>
+            </div>
+            <div class="meta-card">
+                <div class="meta-label">Date Generated</div>
+                <div class="meta-value"><?= e(date('F j, Y g:i A')) ?></div>
+            </div>
+        </section>
+
+        <section class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-label">Applicants</div>
+                <div class="summary-value"><?= e((string)($summary['students_total'] ?? 0)) ?></div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Without Scores</div>
+                <div class="summary-value"><?= e((string)($summary['students_without_scores'] ?? 0)) ?></div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Recommended</div>
+                <div class="summary-value"><?= e((string)($summary['students_with_recommendations'] ?? 0)) ?></div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Score Entries</div>
+                <div class="summary-value"><?= e((string)($summary['score_entries'] ?? 0)) ?></div>
+            </div>
+        </section>
+
+        <?php if (!empty($studentStatusCounts)): ?>
+            <section class="section">
+                <h3 class="section-title">Student Status Snapshot</h3>
+                <div class="section-panel">
+                    <div class="badge-list">
+                        <?php foreach ($studentStatusCounts as $row): ?>
+                            <span class="status-chip">
+                                <?= e(ucfirst((string)$row['status'])) ?>
+                                <strong><?= e((string)$row['total']) ?></strong>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </section>
+        <?php endif; ?>
+
+        <section class="section">
+            <h3 class="section-title">Report Details</h3>
+            <div class="section-panel">
+                <table>
+                    <thead>
+                        <?php if ($reportType === 'applicant_list'): ?>
+                            <tr>
+                                <th style="width: 28%;">Student</th>
+                                <th>Email</th>
+                                <th style="width: 14%;">Status</th>
+                                <th style="width: 28%;">Academic Term / Scores</th>
+                            </tr>
+                        <?php elseif ($reportType === 'test_results'): ?>
+                            <tr>
+                                <th>Student</th>
+                                <th style="width: 16%;">Student ID</th>
+                                <th style="width: 16%;" class="text-center">Total Score</th>
+                                <th style="width: 14%;" class="text-center">Status</th>
+                                <th style="width: 20%;" class="text-center">Latest Exam Date</th>
+                            </tr>
+                        <?php else: ?>
+                            <tr>
+                                <th>Student</th>
+                                <th style="width: 15%;">Student ID</th>
+                                <th style="width: 22%;">Academic Term</th>
+                                <th style="width: 22%;">Recommended Program</th>
+                                <th style="width: 14%;" class="text-center">Overall Score</th>
+                            </tr>
+                        <?php endif; ?>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($reportData)): ?>
+                            <tr>
+                                <td colspan="10" class="empty-state">No records found for the selected period.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($reportData as $row): ?>
+                                <tr>
+                                    <?php if ($reportType === 'applicant_list'): ?>
+                                        <td>
+                                            <div class="cell-title"><?= e($displayStudentName($row)) ?></div>
+                                        </td>
+                                        <td><?= e((string)($row['email'] ?? '')) ?></td>
+                                        <td><?= e(ucfirst((string)($row['status'] ?? 'pending'))) ?></td>
+                                        <td>
+                                            <div class="cell-title"><?= e($displayAcademicLabel($row)) ?></div>
+                                            <div class="cell-subtitle">Score entries: <?= e((string)($row['score_entries'] ?? 0)) ?></div>
+                                        </td>
+                                    <?php elseif ($reportType === 'test_results'): ?>
+                                        <td><div class="cell-title"><?= e($displayStudentName($row)) ?></div></td>
+                                        <td><?= e((string)($row['id_number'] ?? 'Not provided')) ?></td>
+                                        <td class="text-center"><span class="pill-score"><?= e(number_format((float)($row['total_exam_score'] ?? 0), 2)) ?></span></td>
+                                        <td class="text-center"><?= e(ucfirst((string)($row['status'] ?? 'pending'))) ?></td>
+                                        <td class="text-center"><?= !empty($row['exam_date']) ? e(date('M j, Y', strtotime((string)$row['exam_date']))) : 'Not available' ?></td>
+                                    <?php else: ?>
+                                        <td><div class="cell-title"><?= e($displayStudentName($row)) ?></div></td>
+                                        <td><?= e((string)($row['id_number'] ?? 'Not provided')) ?></td>
+                                        <td><?= e($displayAcademicLabel($row)) ?></td>
+                                        <td>
+                                            <div class="cell-title"><?= e((string)($row['recommendation']['course_code'] ?? 'N/A')) ?></div>
+                                            <div class="cell-subtitle"><?= e((string)($row['recommendation']['course_name'] ?? 'No recommendation')) ?></div>
+                                        </td>
+                                        <td class="text-center"><span class="pill-score"><?= e(number_format((float)($row['recommendation']['final_score'] ?? 0), 2)) ?>%</span></td>
+                                    <?php endif; ?>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="report-footer">
+            <div class="prepared-by">
+                <div class="signature-line"></div>
+                <div class="cell-title"><?= e($currentUser) ?></div>
+                <div class="cell-subtitle">Admission Personnel / Prepared By</div>
+            </div>
+            <div class="footer-note">
+                City College of Tagaytay - CAReS<br>
+                <?= e($reportTitle) ?>
+            </div>
+        </footer>
     </div>
-<script>
-  window.addEventListener('load', function() {
-    setTimeout(function() { window.print(); }, 500);
-  });
-</script>
+    <script>
+      window.addEventListener('afterprint', function () {
+        window.close();
+      });
+
+      window.addEventListener('load', function () {
+        setTimeout(function () { window.print(); }, 350);
+      });
+    </script>
 </body>
 </html>

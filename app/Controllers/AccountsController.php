@@ -141,32 +141,73 @@ final class AccountsController
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
         $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
+        $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
+        $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
         $params = [];
         if ($recordScope === 'archived') {
-            $where = "WHERE is_deleted = 1";
+            $where = "WHERE s.is_deleted = 1";
         } elseif ($recordScope === 'all') {
             $where = "WHERE 1=1";
         } else {
             $recordScope = 'active';
-            $where = "WHERE is_deleted = 0";
+            $where = "WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0";
         }
         if ($q !== '') {
             $like = '%' . $q . '%';
-            $where .= " AND (name LIKE :q_name OR email LIKE :q_email OR id_number LIKE :q_id)";
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
             $params[':q_name'] = $like;
             $params[':q_email'] = $like;
             $params[':q_id'] = $like;
         }
         if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
-            $where .= " AND status = :status";
+            $where .= " AND s.status = :status";
             $params[':status'] = $status;
+        }
+        if ($recordScope === 'archived' && $schoolYearId > 0) {
+            $where .= " AND sy.id = :school_year_id";
+            $params[':school_year_id'] = $schoolYearId;
+        }
+        if ($recordScope === 'archived' && $semesterId > 0) {
+            $where .= " AND sem.id = :semester_id";
+            $params[':semester_id'] = $semesterId;
+        }
+
+        $archivedSchoolYears = [];
+        $archivedSemesters = [];
+        $archivedSemestersByYear = [];
+        if ($recordScope === 'archived') {
+            $archivedSchoolYears = Database::pdo()->query("
+                SELECT id, name
+                FROM school_years
+                WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 1
+                ORDER BY created_at DESC
+            ")->fetchAll();
+
+            $allSemesterRows = Database::pdo()->query("
+                SELECT id, school_year_id, name
+                FROM semesters
+                WHERE is_deleted = 0
+                ORDER BY FIELD(name, '1st Semester', '2nd Semester', 'Summer')
+            ")->fetchAll();
+            foreach ($allSemesterRows as $semesterRow) {
+                $archivedSemestersByYear[(int)$semesterRow['school_year_id']][] = [
+                    'id' => (int)$semesterRow['id'],
+                    'name' => (string)$semesterRow['name'],
+                ];
+            }
+
+            if ($schoolYearId > 0) {
+                $archivedSemesters = $archivedSemestersByYear[$schoolYearId] ?? [];
+            }
         }
 
         $countSql = "SELECT COUNT(*)
-                     FROM students
+                     FROM students s
+                     LEFT JOIN semesters sem ON sem.id = s.semester_id
+                     LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                      $where";
         $countSt = Database::pdo()->prepare($countSql);
         $countSt->execute($params);
@@ -177,10 +218,21 @@ final class AccountsController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT id, id_number, name, email, status, is_deleted, deleted_at, created_at
-                FROM students
+        $sql = "SELECT s.id,
+                       s.id_number,
+                       s.name,
+                       s.email,
+                       s.status,
+                       s.is_deleted,
+                       s.deleted_at,
+                       s.created_at,
+                       sem.name AS semester_name,
+                       sy.name AS school_year_name
+                FROM students s
+                LEFT JOIN semesters sem ON sem.id = s.semester_id
+                LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                 $where
-                ORDER BY created_at DESC
+                ORDER BY s.created_at DESC
                 LIMIT :limit OFFSET :offset";
         $st = Database::pdo()->prepare($sql);
         foreach ($params as $key => $value) {
@@ -190,6 +242,7 @@ final class AccountsController
         $st->bindValue(':offset', $offset, PDO::PARAM_INT);
         $st->execute();
         $students = $st->fetchAll();
+        $activeSemester = self::getActiveSemester();
 
         View::render('admin/students', [
             'title' => 'Student Management',
@@ -197,6 +250,12 @@ final class AccountsController
             'q' => $q,
             'statusFilter' => $status,
             'recordScopeFilter' => $recordScope,
+            'activeSemester' => $activeSemester,
+            'schoolYearFilter' => $schoolYearId,
+            'semesterFilter' => $semesterId,
+            'archivedSchoolYears' => $archivedSchoolYears,
+            'archivedSemesters' => $archivedSemesters,
+            'archivedSemestersByYear' => $archivedSemestersByYear,
             'pagination' => [
                 'page' => $page,
                 'pages' => $pages,
@@ -209,6 +268,8 @@ final class AccountsController
                     'q' => $q,
                     'status' => $status,
                     'record_scope' => $recordScope,
+                    'school_year_id' => $schoolYearId > 0 ? $schoolYearId : '',
+                    'semester_id' => $semesterId > 0 ? $semesterId : '',
                 ],
             ],
         ]);
@@ -221,6 +282,7 @@ final class AccountsController
             'mode' => 'create',
             'action' => '/administrator/students/create',
             'student' => ['name' => '', 'email' => '', 'id_number' => '', 'status' => 'pending'],
+            'activeSemester' => self::getActiveSemester(),
             'error' => null,
         ]);
     }
@@ -258,6 +320,17 @@ final class AccountsController
             return;
         }
 
+        $activeSemester = self::getActiveSemester();
+        if ($activeSemester === null) {
+            self::renderStudentForm('create', 'Set an active semester first before creating students.', [
+                'name' => $name,
+                'email' => $email,
+                'id_number' => $idNumber,
+                'status' => $status,
+            ]);
+            return;
+        }
+
         $pdo = Database::pdo();
         $check = $pdo->prepare("SELECT id FROM students WHERE (email = :email OR id_number = :id_number) AND is_deleted = 0 LIMIT 1");
         $check->execute([
@@ -274,13 +347,14 @@ final class AccountsController
             return;
         }
 
-        $pdo->prepare("INSERT INTO students (id_number, name, email, status, created_by)
-                       VALUES (:id_number, :name, :email, :status, :created_by)")
+        $pdo->prepare("INSERT INTO students (id_number, name, email, status, semester_id, created_by)
+                       VALUES (:id_number, :name, :email, :status, :semester_id, :created_by)")
             ->execute([
                 ':id_number' => $idNumber === '' ? null : $idNumber,
                 ':name' => $name,
                 ':email' => $email,
                 ':status' => $status,
+                ':semester_id' => (int)$activeSemester['id'],
                 ':created_by' => (int)($_SESSION['user_id'] ?? 0),
             ]);
 
@@ -292,7 +366,7 @@ final class AccountsController
     public static function editStudent(): void
     {
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status, semester_id FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -307,6 +381,7 @@ final class AccountsController
             'mode' => 'edit',
             'action' => '/administrator/students/edit',
             'student' => $student,
+            'activeSemester' => self::getActiveSemester(),
             'error' => null,
         ]);
     }
@@ -348,6 +423,31 @@ final class AccountsController
         }
 
         $pdo = Database::pdo();
+        $currentStudentSt = $pdo->prepare("SELECT semester_id FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $currentStudentSt->execute([':id' => $id]);
+        $currentStudent = $currentStudentSt->fetch();
+        if (!$currentStudent) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Not Found']);
+            return;
+        }
+
+        $semesterId = (int)($currentStudent['semester_id'] ?? 0);
+        if ($semesterId <= 0) {
+            $activeSemester = self::getActiveSemester();
+            if ($activeSemester === null) {
+                self::renderStudentForm('edit', 'Set an active semester first before saving this student.', [
+                    'id' => $id,
+                    'name' => $name,
+                    'email' => $email,
+                    'id_number' => $idNumber,
+                    'status' => $status,
+                ]);
+                return;
+            }
+            $semesterId = (int)$activeSemester['id'];
+        }
+
         $check = $pdo->prepare("SELECT id FROM students WHERE (email = :email OR id_number = :id_number) AND id <> :id AND is_deleted = 0 LIMIT 1");
         $check->execute([
             ':email' => $email,
@@ -370,13 +470,15 @@ final class AccountsController
                            name = :name,
                            email = :email,
                            status = :status,
+                           semester_id = :semester_id,
                            updated_by = :updated_by
-                       WHERE id = :id AND is_deleted = 0")
+                       WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0")
             ->execute([
                 ':id_number' => $idNumber === '' ? null : $idNumber,
                 ':name' => $name,
                 ':email' => $email,
                 ':status' => $status,
+                ':semester_id' => $semesterId,
                 ':updated_by' => (int)($_SESSION['user_id'] ?? 0),
                 ':id' => $id,
             ]);
@@ -393,8 +495,34 @@ final class AccountsController
             'mode' => $mode,
             'action' => $mode === 'create' ? '/administrator/students/create' : '/administrator/students/edit',
             'student' => $student,
+            'activeSemester' => self::getActiveSemester(),
             'error' => $error,
         ]);
+    }
+
+    private static function getActiveSemester(): ?array
+    {
+        try {
+            $st = Database::pdo()->query("
+                SELECT s.id, s.name AS semester_name, sy.name AS school_year_name
+                FROM semesters s
+                INNER JOIN school_years sy ON sy.id = s.school_year_id
+                WHERE s.is_active = 1
+                  AND s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  AND sy.is_deleted = 0
+                  AND COALESCE(sy.is_archived, 0) = 0
+                LIMIT 1
+            ");
+            $row = $st->fetch();
+            if (!$row) {
+                return null;
+            }
+            $row['label'] = trim((string)$row['school_year_name']) . ' - ' . trim((string)$row['semester_name']);
+            return $row;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
     public static function create(): void

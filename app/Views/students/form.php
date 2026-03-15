@@ -2,6 +2,7 @@
 declare(strict_types=1);
 $mode = (string)($mode ?? 'edit');
 $student = $student ?? [];
+$activeSemester = $activeSemester ?? null;
 ?>
 <div class="card shadow-sm">
   <div class="card-body">
@@ -17,6 +18,15 @@ $student = $student ?? [];
 
     <?php if (!empty($error)): ?>
       <div class="alert alert-danger"><?= e((string)$error) ?></div>
+    <?php endif; ?>
+
+    <?php if (!empty($activeSemester)): ?>
+      <div class="alert alert-light border mb-3">
+        <div class="small text-muted text-uppercase fw-bold mb-1" style="font-size: 0.72rem; letter-spacing: 1px;">Assigned Semester</div>
+        <div class="fw-semibold"><?= e((string)($activeSemester['label'] ?? '')) ?></div>
+      </div>
+    <?php else: ?>
+      <div class="alert alert-warning">Set an active semester first before saving students.</div>
     <?php endif; ?>
 
     <form method="post" action="<?= e(BASE_PATH) ?><?= e((string)$action) ?>">

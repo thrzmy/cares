@@ -42,41 +42,34 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                 <button type="button" class="btn-close btn-close-white d-lg-none py-3 pe-3 ps-0 m-0" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
             </div>
 
-            <div class="sidebar-user d-flex align-items-center gap-3 mt-4 mb-4 px-3">
-                <div class="user-avatar text-white bg-white bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
-                    <i class="fa-solid fa-user-tie fs-4"></i>
-                </div>
-                <div class="user-info d-flex flex-column overflow-hidden">
-                    <div class="user-name text-truncate text-white fw-semibold" title="<?= e($_SESSION['name'] ?? 'User') ?>">
-                        <?= e($_SESSION['name'] ?? 'User') ?>
-                    </div>
-                    <div class="user-role mt-1">
-                        <span class="badge cares-role-badge rounded-pill px-2 py-1 fw-normal">
-                            <?= ucfirst(e($_SESSION['role'] ?? 'user')) ?>
-                        </span>
+            <div class="sidebar-user mt-4 mb-4 px-3">
+                <div class="sidebar-user-card">
+                    <div class="user-info d-flex flex-column overflow-hidden">
+                        <div class="user-name text-truncate text-white fw-semibold" title="<?= e($_SESSION['name'] ?? 'User') ?>">
+                            <?= e($_SESSION['name'] ?? 'User') ?>
+                        </div>
+                        <div class="user-role mt-1">
+                            <span class="cares-role-badge">
+                                <?= ucfirst(e($_SESSION['role'] ?? 'user')) ?>
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="sidebar-body flex-grow-1 overflow-y-auto px-2">
+            <div class="sidebar-body flex-grow-1 px-2">
                 <ul class="sidebar-nav list-unstyled">
                     <?php if ($_SESSION['role'] === 'administrator'): ?>
                         <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator">
-                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-chart-line fs-5"></i></div>
+                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">
+                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-file-contract fs-5"></i></div>
                                 <span>Dashboard</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/semesters') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/semesters">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-calendar-check fs-5"></i></div>
-                                <span>Academic Year & Sem</span>
-                            </a>
-                        </li>
-                        <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/accounts') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">
-                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-users-gear fs-5"></i></div>
-                                <span>Account Management</span>
+                                <span>Academic Year & Semester</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
@@ -88,19 +81,19 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/scores') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-square-poll-vertical fs-5"></i></div>
-                                <span>Results & Recos</span>
+                                <span>Course Recommendations</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/matrix') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/matrix">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-table-list fs-5"></i></div>
-                                <span>Matrix Config</span>
+                                <span>Recommendation Matrix</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">
-                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-file-contract fs-5"></i></div>
-                                <span>System Reports</span>
+                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/accounts') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">
+                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-users-gear fs-5"></i></div>
+                                <span>Account Management</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
@@ -111,8 +104,8 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         </li>
                     <?php elseif ($_SESSION['role'] === 'admission'): ?>
                         <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission">
-                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-chart-line fs-5"></i></div>
+                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/reports">
+                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-file-contract fs-5"></i></div>
                                 <span>Dashboard</span>
                             </a>
                         </li>
@@ -137,19 +130,13 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/results') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/results">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-square-poll-vertical fs-5"></i></div>
-                                <span>Results & Recos</span>
-                            </a>
-                        </li>
-                        <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/reports">
-                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-file-contract fs-5"></i></div>
-                                <span>System Reports</span>
+                                <span>Course Recommendations</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/logs') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/logs">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-clock-rotate-left fs-5"></i></div>
-                                <span>My Activity Logs</span>
+                                <span>Activity Logs</span>
                             </a>
                         </li>
                     <?php endif; ?>
@@ -178,7 +165,7 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
         </aside>
 
         <!-- Main Content Area -->
-        <div class="app-main flex-grow-1 min-vh-100 d-flex flex-column" style="background-color: var(--cares-bg);">
+        <div class="app-main flex-grow-1 d-flex flex-column" style="background-color: var(--cares-bg);">
             <!-- Mobile Header with Hamburger -->
             <header class="mobile-header d-lg-none bg-white p-3 d-flex align-items-center justify-content-between shadow-sm sticky-top z-3">
                 <div class="d-flex align-items-center gap-3">
@@ -190,7 +177,7 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
             </header>
 
             <!-- Page Content -->
-            <main class="content-wrapper p-3 p-md-4 p-lg-5 flex-grow-1 overflow-x-hidden">
+            <main class="content-wrapper p-3 p-md-4 p-lg-5 flex-grow-1 overflow-x-hidden overflow-y-auto">
                 <?php require_once $viewFile; ?>
             </main>
         </div>

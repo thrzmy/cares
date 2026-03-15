@@ -1,8 +1,9 @@
--- CARES Migration v2: CANONICAL schema upgrade for semester management
--- and category-aware matrix configuration.
--- Run this in phpMyAdmin after applying the base schema.sql.
--- If you use this file, the smaller migration_* files are legacy/supplemental
--- and should not be treated as an alternative full semester setup.
+-- CARES Migration v2: LEGACY upgrade path for older databases only
+-- Fresh installs should use:
+--   1. database/schema.sql
+--   2. database/setup_seed.sql
+--   3. optional database/seed.sql
+-- Keep this file only for upgrading an existing pre-semester database in place.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;

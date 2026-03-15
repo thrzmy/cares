@@ -8,9 +8,6 @@ declare(strict_types=1);
     <h5 class="fw-bold mb-1">My Profile</h5>
     <p class="page-subtitle">Manage your account details and security settings.</p>
   </div>
-  <div class="page-actions">
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/administrator">Back to Dashboard</a>
-  </div>
 </div>
 
 <div class="row g-3">

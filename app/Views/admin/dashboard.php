@@ -13,6 +13,30 @@ RoleMiddleware::requireRole('administrator');
 
 <div class="row g-4">
     <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/reports" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center maroon">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-secondary bg-secondary bg-opacity-10">
+                    <i class="fa-solid fa-file-contract fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">System Reports</h5>
+                <span class="text-muted small fw-medium mt-auto">Generate Analytics</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <a href="<?= e(BASE_PATH) ?>/administrator/semesters" class="text-decoration-none">
+            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center gold">
+                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-primary bg-primary bg-opacity-10">
+                    <i class="fa-solid fa-calendar-check fs-4"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">Academic Year & Semester</h5>
+                <span class="text-muted small fw-medium mt-auto">Manage Terms</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
         <a href="<?= e(BASE_PATH) ?>/administrator/accounts" class="text-decoration-none">
             <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center maroon">
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-primary bg-primary bg-opacity-10">
@@ -42,8 +66,8 @@ RoleMiddleware::requireRole('administrator');
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-warning bg-warning bg-opacity-10">
                     <i class="fa-solid fa-square-poll-vertical fs-4 text-warning"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1">Exam Results</h5>
-                <span class="text-muted small fw-medium mt-auto">View Recommendations</span>
+                <h5 class="fw-bold text-dark mb-1">Course Recommendations</h5>
+                <span class="text-muted small fw-medium mt-auto">Review Results</span>
             </div>
         </a>
     </div>
@@ -54,32 +78,8 @@ RoleMiddleware::requireRole('administrator');
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-info bg-info bg-opacity-10">
                     <i class="fa-solid fa-table-list fs-4"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1">Matrix Config</h5>
+                <h5 class="fw-bold text-dark mb-1">Recommendation Matrix</h5>
                 <span class="text-muted small fw-medium mt-auto">Adjust Scoring Weights</span>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-        <a href="<?= e(BASE_PATH) ?>/administrator/semesters" class="text-decoration-none">
-            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center gold">
-                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-primary bg-primary bg-opacity-10">
-                    <i class="fa-solid fa-calendar-check fs-4"></i>
-                </div>
-                <h5 class="fw-bold text-dark mb-1">Academic Terms</h5>
-                <span class="text-muted small fw-medium mt-auto">Manage Semesters</span>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
-        <a href="<?= e(BASE_PATH) ?>/administrator/reports" class="text-decoration-none">
-            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center maroon">
-                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-secondary bg-secondary bg-opacity-10">
-                    <i class="fa-solid fa-file-contract fs-4"></i>
-                </div>
-                <h5 class="fw-bold text-dark mb-1">System Reports</h5>
-                <span class="text-muted small fw-medium mt-auto">Generate Analytics</span>
             </div>
         </a>
     </div>

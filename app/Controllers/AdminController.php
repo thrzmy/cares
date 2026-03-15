@@ -15,16 +15,30 @@ final class AdminController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
+        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
+        $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
+        $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
         $params = [];
-        $where = "WHERE s.is_deleted = 0
+        if ($recordScope === 'archived') {
+            $where = "WHERE (s.is_deleted = 1 OR COALESCE(s.is_archived, 0) = 1)
                   AND EXISTS (
                       SELECT 1
                       FROM student_exam_scores ses
                       WHERE ses.student_id = s.id AND ses.is_deleted = 0
                   )";
+        } else {
+            $recordScope = 'active';
+            $where = "WHERE s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  AND EXISTS (
+                      SELECT 1
+                      FROM student_exam_scores ses
+                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
+                  )";
+        }
 
         if ($q !== '') {
             $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
@@ -37,9 +51,48 @@ final class AdminController
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
+        if ($recordScope === 'archived' && $schoolYearId > 0) {
+            $where .= " AND sy.id = :school_year_id";
+            $params[':school_year_id'] = $schoolYearId;
+        }
+        if ($recordScope === 'archived' && $semesterId > 0) {
+            $where .= " AND sem.id = :semester_id";
+            $params[':semester_id'] = $semesterId;
+        }
+
+        $archivedSchoolYears = [];
+        $archivedSemesters = [];
+        $archivedSemestersByYear = [];
+        if ($recordScope === 'archived') {
+            $archivedSchoolYears = Database::pdo()->query("
+                SELECT id, name
+                FROM school_years
+                WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 1
+                ORDER BY created_at DESC
+            ")->fetchAll();
+
+            $allSemesterRows = Database::pdo()->query("
+                SELECT id, school_year_id, name
+                FROM semesters
+                WHERE is_deleted = 0
+                ORDER BY FIELD(name, '1st Semester', '2nd Semester', 'Summer')
+            ")->fetchAll();
+            foreach ($allSemesterRows as $semesterRow) {
+                $archivedSemestersByYear[(int)$semesterRow['school_year_id']][] = [
+                    'id' => (int)$semesterRow['id'],
+                    'name' => (string)$semesterRow['name'],
+                ];
+            }
+
+            if ($schoolYearId > 0) {
+                $archivedSemesters = $archivedSemestersByYear[$schoolYearId] ?? [];
+            }
+        }
 
         $countSql = "SELECT COUNT(*)
                      FROM students s
+                     LEFT JOIN semesters sem ON sem.id = s.semester_id
+                     LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                      $where";
         $countSt = Database::pdo()->prepare($countSql);
         $countSt->execute($params);
@@ -50,8 +103,19 @@ final class AdminController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+        $sql = "SELECT s.id,
+                       s.id_number,
+                       s.name,
+                       s.email,
+                       s.status,
+                       s.is_deleted,
+                       s.is_archived,
+                       s.created_at,
+                       sem.name AS semester_name,
+                       sy.name AS school_year_name
                 FROM students s
+                LEFT JOIN semesters sem ON sem.id = s.semester_id
+                LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                 $where
                 ORDER BY s.created_at DESC
                 LIMIT :limit OFFSET :offset";
@@ -79,6 +143,13 @@ final class AdminController
             'recommendations' => $recommendations,
             'q' => $q,
             'statusFilter' => $status,
+            'recordScopeFilter' => $recordScope,
+            'schoolYearFilter' => $schoolYearId,
+            'semesterFilter' => $semesterId,
+            'archivedSchoolYears' => $archivedSchoolYears,
+            'archivedSemesters' => $archivedSemesters,
+            'archivedSemestersByYear' => $archivedSemestersByYear,
+            'activeSemester' => self::getActiveSemester(),
             'success' => flash('success'),
             'error' => flash('error'),
             'pagination' => [
@@ -92,6 +163,9 @@ final class AdminController
                 'query' => [
                     'q' => $q,
                     'status' => $status,
+                    'record_scope' => $recordScope,
+                    'school_year_id' => $schoolYearId > 0 ? $schoolYearId : '',
+                    'semester_id' => $semesterId > 0 ? $semesterId : '',
                 ],
             ],
         ]);
@@ -102,7 +176,11 @@ final class AdminController
         RoleMiddleware::requireRole('administrator');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status
+                                        FROM students
+                                        WHERE id = :id
+                                          AND (is_deleted = 0 OR COALESCE(is_archived, 0) = 1 OR is_deleted = 1)
+                                        LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -113,6 +191,7 @@ final class AdminController
         }
 
         $parts = WeightsService::getExamParts();
+        $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
         $courseSummaries = self::getCourseRecommendationsForStudent($id);
 
@@ -120,6 +199,7 @@ final class AdminController
             'title' => 'View Scores',
             'student' => $student,
             'parts' => $parts,
+            'groupedParts' => $groupedParts,
             'scoresMap' => $scoresMap,
             'courseSummaries' => $courseSummaries,
         ]);
@@ -135,7 +215,16 @@ final class AdminController
     {
         RoleMiddleware::requireRole('administrator');
 
-        $courses = WeightsService::getAllCourses();
+        $allCourses = WeightsService::getAllCourses();
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $perPage = 5;
+        $total = count($allCourses);
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $courses = array_slice($allCourses, $offset, $perPage);
         // Use grouped exam parts for the UI
         $groupedParts = WeightsService::getExamPartsGrouped();
         $weightsMap = WeightsService::getWeightsMap();
@@ -147,6 +236,16 @@ final class AdminController
             'weightsMap' => $weightsMap,
             'success' => flash('success'),
             'error' => flash('error'),
+            'pagination' => [
+                'page' => $page,
+                'pages' => $pages,
+                'total' => $total,
+                'perPage' => $perPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+                'basePath' => '/administrator/matrix',
+                'query' => [],
+            ],
         ]);
     }
 
@@ -157,6 +256,7 @@ final class AdminController
 
         $weights = $_POST['weights'] ?? [];
         $maxScores = $_POST['max_scores'] ?? [];
+        $page = max(1, (int)($_POST['page'] ?? 1));
 
         $userId = currentUserId();
         if ($userId === null) {
@@ -188,7 +288,7 @@ final class AdminController
             flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to save matrix configuration.');
         }
 
-        redirect('/administrator/matrix');
+        redirect('/administrator/matrix' . ($page > 1 ? ('?page=' . $page) : ''));
     }
 
     public static function addCourse(): void
@@ -514,7 +614,7 @@ final class AdminController
         }
 
         $studentsParams = [];
-        $studentsWhere = "WHERE is_deleted = 0";
+        $studentsWhere = "WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 0";
         $studentsWhere .= $addDateFilter('created_at', $studentsParams);
 
         $studentsTotalSt = Database::pdo()->prepare("SELECT COUNT(*) FROM students {$studentsWhere}");
@@ -543,7 +643,7 @@ final class AdminController
              FROM students s
              INNER JOIN student_exam_scores ses
                ON ses.student_id = s.id AND ses.is_deleted = 0
-             WHERE s.is_deleted = 0" . $addDateFilter('ses.created_at', $scoresParams)
+             WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0" . $addDateFilter('ses.created_at', $scoresParams)
         );
         $studentsWithScoresSt->execute($scoresParams);
         $studentsWithScores = (int)$studentsWithScoresSt->fetchColumn();
@@ -661,6 +761,143 @@ final class AdminController
             'studentStatusCounts' => $studentStatusCounts,
             'examParts' => $examParts,
             'topRecommendations' => $topRecommendations,
+        ]);
+    }
+
+    public static function printReport(): void
+    {
+        RoleMiddleware::requireRole('administrator');
+
+        $reportType = trim((string)($_GET['report_type'] ?? 'course_recommendation'));
+        $allowedTypes = ['applicant_list', 'test_results', 'course_recommendation'];
+        if (!in_array($reportType, $allowedTypes, true)) {
+            $reportType = 'course_recommendation';
+        }
+
+        $startDate = self::normalizeDateInput(trim((string)($_GET['start_date'] ?? '')));
+        $endDate = self::normalizeDateInput(trim((string)($_GET['end_date'] ?? '')));
+
+        if ($startDate !== '' && $endDate !== '' && $endDate < $startDate) {
+            $tmp = $startDate;
+            $startDate = $endDate;
+            $endDate = $tmp;
+        }
+
+        $addDateFilter = static function (string $column, array &$params) use ($startDate, $endDate): string {
+            $clause = '';
+            if ($startDate !== '') {
+                $clause .= " AND {$column} >= :start_date";
+                $params[':start_date'] = $startDate . ' 00:00:00';
+            }
+            if ($endDate !== '') {
+                $clause .= " AND {$column} <= :end_date";
+                $params[':end_date'] = $endDate . ' 23:59:59';
+            }
+            return $clause;
+        };
+
+        $studentsParams = [];
+        $studentsWhere = "WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 0";
+        $studentsWhere .= $addDateFilter('created_at', $studentsParams);
+
+        $studentsTotalSt = Database::pdo()->prepare("SELECT COUNT(*) FROM students {$studentsWhere}");
+        $studentsTotalSt->execute($studentsParams);
+        $studentsTotal = (int)$studentsTotalSt->fetchColumn();
+
+        $studentStatusSt = Database::pdo()->prepare("SELECT status, COUNT(*) AS total FROM students {$studentsWhere} GROUP BY status ORDER BY total DESC");
+        $studentStatusSt->execute($studentsParams);
+        $studentStatusCounts = $studentStatusSt->fetchAll();
+
+        $scoresParams = [];
+        $scoresWhere = "WHERE ses.is_deleted = 0";
+        $scoresWhere .= $addDateFilter('ses.created_at', $scoresParams);
+
+        $scoreEntriesSt = Database::pdo()->prepare("SELECT COUNT(*) FROM student_exam_scores ses {$scoresWhere}");
+        $scoreEntriesSt->execute($scoresParams);
+        $scoreEntries = (int)$scoreEntriesSt->fetchColumn();
+
+        $studentsWithScoresSt = Database::pdo()->prepare(
+            "SELECT COUNT(DISTINCT s.id)
+             FROM students s
+             INNER JOIN student_exam_scores ses
+               ON ses.student_id = s.id AND ses.is_deleted = 0
+             WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0" . $addDateFilter('ses.created_at', $scoresParams)
+        );
+        $studentsWithScoresSt->execute($scoresParams);
+        $studentsWithScores = (int)$studentsWithScoresSt->fetchColumn();
+        $studentsWithoutScores = max(0, $studentsTotal - $studentsWithScores);
+
+        $studentsWithRecommendationsSt = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    ses.student_id,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY ses.student_id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
+                    ) AS rn
+                FROM student_exam_scores ses
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
+                INNER JOIN students s
+                    ON s.id = ses.student_id
+                WHERE ses.is_deleted = 0
+                  AND s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0" . $addDateFilter('ses.created_at', $scoresParams) . "
+                GROUP BY ses.student_id
+            )
+            SELECT COUNT(*) FROM ranked WHERE rn = 1"
+        );
+        $studentsWithRecommendationsSt->execute($scoresParams);
+        $studentsWithRecommendations = (int)$studentsWithRecommendationsSt->fetchColumn();
+
+        $examParams = [];
+        $examWhere = $addDateFilter('ses.created_at', $examParams);
+        $examPartsSt = Database::pdo()->prepare(
+            "SELECT ep.name,
+                    ep.max_score,
+                    COUNT(ses.id) AS entries,
+                    AVG(ses.score) AS avg_score
+             FROM exam_parts ep
+             LEFT JOIN student_exam_scores ses
+               ON ses.exam_part_id = ep.id
+              AND ses.is_deleted = 0
+              {$examWhere}
+             WHERE ep.is_deleted = 0
+             GROUP BY ep.id
+             ORDER BY ep.name"
+        );
+        $examPartsSt->execute($examParams);
+        $examParts = $examPartsSt->fetchAll();
+
+        $reportData = self::getPrintableReportData($reportType, $startDate, $endDate);
+
+        $periodLabel = 'All time';
+        if ($startDate !== '' || $endDate !== '') {
+            $startLabel = $startDate !== '' ? date('M j, Y', strtotime($startDate)) : 'Beginning';
+            $endLabel = $endDate !== '' ? date('M j, Y', strtotime($endDate)) : 'Present';
+            $periodLabel = $startLabel . ' to ' . $endLabel;
+        }
+
+        $activeSemester = self::getActiveSemester();
+        $semesterName = $activeSemester['label'] ?? 'All Semesters';
+
+        View::renderStandalone('admin/reports_print', [
+            'title' => 'Print Report',
+            'reportType' => $reportType,
+            'reportData' => $reportData,
+            'summary' => [
+                'students_total' => $studentsTotal,
+                'score_entries' => $scoreEntries,
+                'students_without_scores' => $studentsWithoutScores,
+                'students_with_recommendations' => $studentsWithRecommendations,
+            ],
+            'studentStatusCounts' => $studentStatusCounts,
+            'examParts' => $examParts,
+            'periodLabel' => $periodLabel,
+            'semesterName' => $semesterName,
         ]);
     }
 
@@ -859,5 +1096,156 @@ final class AdminController
                 'total_score' => (float)$row['total_score'],
             ];
         }, $st->fetchAll());
+    }
+
+    private static function getPrintableReportData(string $reportType, string $startDate, string $endDate): array
+    {
+        $addDateFilter = static function (string $column, array &$params) use ($startDate, $endDate): string {
+            $clause = '';
+            if ($startDate !== '') {
+                $clause .= " AND {$column} >= :start_date";
+                $params[':start_date'] = $startDate . ' 00:00:00';
+            }
+            if ($endDate !== '') {
+                $clause .= " AND {$column} <= :end_date";
+                $params[':end_date'] = $endDate . ' 23:59:59';
+            }
+            return $clause;
+        };
+
+        if ($reportType === 'applicant_list') {
+            $params = [];
+            $where = "WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0";
+            $where .= $addDateFilter('s.created_at', $params);
+
+            $st = Database::pdo()->prepare(
+                "SELECT s.id_number,
+                        s.name,
+                        s.email,
+                        s.status,
+                        sy.name AS school_year_name,
+                        sem.name AS semester_name,
+                        COUNT(ses.id) AS score_entries
+                 FROM students s
+                 LEFT JOIN semesters sem ON sem.id = s.semester_id
+                 LEFT JOIN school_years sy ON sy.id = sem.school_year_id
+                 LEFT JOIN student_exam_scores ses
+                   ON ses.student_id = s.id
+                  AND ses.is_deleted = 0
+                 {$where}
+                 GROUP BY s.id
+                 ORDER BY s.name ASC"
+            );
+            $st->execute($params);
+            return $st->fetchAll();
+        }
+
+        if ($reportType === 'test_results') {
+            $params = [];
+            $dateFilter = $addDateFilter('ses.created_at', $params);
+            $st = Database::pdo()->prepare(
+                "SELECT s.id_number,
+                        s.name,
+                        s.status,
+                        ROUND(SUM(ses.score), 2) AS total_exam_score,
+                        MAX(ses.created_at) AS exam_date
+                 FROM students s
+                 INNER JOIN student_exam_scores ses
+                    ON ses.student_id = s.id
+                   AND ses.is_deleted = 0
+                 WHERE s.is_deleted = 0
+                   AND COALESCE(s.is_archived, 0) = 0
+                   {$dateFilter}
+                 GROUP BY s.id
+                 ORDER BY exam_date DESC, s.name ASC"
+            );
+            $st->execute($params);
+            return $st->fetchAll();
+        }
+
+        $params = [];
+        $dateFilter = $addDateFilter('ses.created_at', $params);
+        $st = Database::pdo()->prepare(
+            "WITH ranked AS (
+                SELECT
+                    s.id,
+                    s.id_number,
+                    s.name,
+                    sy.name AS school_year_name,
+                    sem.name AS semester_name,
+                    c.course_code,
+                    c.course_name,
+                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS final_score,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY s.id
+                        ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC, c.course_name ASC
+                    ) AS rn
+                FROM students s
+                INNER JOIN student_exam_scores ses
+                    ON ses.student_id = s.id
+                   AND ses.is_deleted = 0
+                INNER JOIN exam_parts ep
+                    ON ep.id = ses.exam_part_id
+                   AND ep.is_deleted = 0
+                INNER JOIN weights w
+                    ON w.exam_part_id = ses.exam_part_id
+                   AND w.is_deleted = 0
+                INNER JOIN courses c
+                    ON c.id = w.course_id
+                   AND c.is_deleted = 0
+                LEFT JOIN semesters sem
+                    ON sem.id = s.semester_id
+                LEFT JOIN school_years sy
+                    ON sy.id = sem.school_year_id
+                WHERE s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  {$dateFilter}
+                GROUP BY s.id, c.id
+            )
+            SELECT id_number,
+                   name,
+                   school_year_name,
+                   semester_name,
+                   course_code,
+                   course_name,
+                   final_score
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY final_score DESC, name ASC"
+        );
+        $st->execute($params);
+        return array_map(static function (array $row): array {
+            $row['recommendation'] = [
+                'course_code' => (string)$row['course_code'],
+                'course_name' => (string)$row['course_name'],
+                'final_score' => (float)$row['final_score'],
+            ];
+            return $row;
+        }, $st->fetchAll());
+    }
+
+    private static function getActiveSemester(): ?array
+    {
+        try {
+            $st = Database::pdo()->query("
+                SELECT s.id, s.name AS semester_name, sy.name AS school_year_name
+                FROM semesters s
+                INNER JOIN school_years sy ON sy.id = s.school_year_id
+                WHERE s.is_active = 1
+                  AND s.is_deleted = 0
+                  AND COALESCE(s.is_archived, 0) = 0
+                  AND sy.is_deleted = 0
+                  AND COALESCE(sy.is_archived, 0) = 0
+                LIMIT 1
+            ");
+            $row = $st->fetch();
+            if (!$row) {
+                return null;
+            }
+            $row['label'] = trim((string)$row['school_year_name']) . ' - ' . trim((string)$row['semester_name']);
+            return $row;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 }

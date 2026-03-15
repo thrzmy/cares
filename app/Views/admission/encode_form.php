@@ -4,6 +4,8 @@ $error = $error ?? null;
 $success = $success ?? null;
 $mode = (string)($mode ?? 'encode');
 $recommendations = $recommendations ?? [];
+$groupedParts = $groupedParts ?? [];
+$activeSemester = $activeSemester ?? null;
 $isView = $mode === 'view';
 $inputAttrs = $isView ? 'readonly disabled' : '';
 $requiredAttr = $isView ? '' : 'required';
@@ -16,7 +18,7 @@ $requiredAttr = $isView ? '' : 'required';
       <h4 class="fw-bold mb-1">Results Preview</h4>
       <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
     <?php else: ?>
-      <h4 class="fw-bold mb-1">Encode Test Results</h4>
+      <h4 class="fw-bold mb-1">Encode Results</h4>
       <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
     <?php endif; ?>
   </div>
@@ -28,6 +30,15 @@ $requiredAttr = $isView ? '' : 'required';
     <?php endif; ?>
   </div>
 </div>
+
+<?php if ($activeSemester): ?>
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2 mb-4">
+    <div>
+      <h6 class="text-muted text-uppercase fw-bold mb-1" style="font-size: 0.75rem; letter-spacing: 1px;">Current Academic Year</h6>
+      <div class="fw-semibold"><?= e((string)($activeSemester['school_year_name'] ?? '')) ?></div>
+    </div>
+  </div>
+<?php endif; ?>
 
 <?php if (!empty($success)): ?>
   <div class="alert alert-success"><?= e($success) ?></div>
@@ -84,28 +95,45 @@ $requiredAttr = $isView ? '' : 'required';
           <h6 class="fw-bold mb-0"><?= $isView ? 'Recorded Scores' : 'Enter Scores by Exam Part' ?></h6>
         </div>
         <div class="row g-3">
-          <?php foreach ($parts as $part): ?>
-            <?php
-              $partId = (int)$part['id'];
-              $maxScore = (float)$part['max_score'];
-              $value = $scoresMap[$partId] ?? '';
-            ?>
-            <div class="col-12 col-md-6">
-              <label class="form-label fw-semibold"><?= e($part['name']) ?></label>
-              <div class="input-group">
-                <input
-                  class="form-control"
-                  type="number"
-                  name="scores[<?= $partId ?>]"
-                  min="0"
-                  max="<?= e((string)$maxScore) ?>"
-                  step="0.01"
-                  value="<?= e((string)$value) ?>"
-                  <?= $inputAttrs ?>
-                  <?= $requiredAttr ?>
-                >
-                <span class="input-group-text">Max <?= e((string)$maxScore) ?></span>
-              </div>
+          <?php foreach (($groupedParts ?: [['category_name' => 'Exam Parts', 'parts' => $parts]]) as $group): ?>
+            <div class="col-12 col-xl-6">
+              <section class="encode-part-card">
+                <header class="encode-part-card__header">
+                  <h6 class="encode-part-card__title mb-0"><?= e((string)($group['category_name'] ?? 'Exam Parts')) ?></h6>
+                </header>
+                <div class="encode-part-card__body">
+                  <div class="row g-3">
+                    <?php foreach (($group['parts'] ?? []) as $part): ?>
+                      <?php
+                        $partId = (int)$part['id'];
+                        $maxScore = (float)$part['max_score'];
+                        $value = $scoresMap[$partId] ?? '';
+                      ?>
+                      <div class="col-12 col-md-6">
+                        <label class="encode-score-label" for="score-<?= $partId ?>">
+                          <span><?= e((string)$part['name']) ?></span>
+                          <span class="encode-score-max">Max: <?= e(number_format($maxScore, 0)) ?></span>
+                        </label>
+                        <div class="encode-score-input-wrap">
+                          <input
+                            id="score-<?= $partId ?>"
+                            class="form-control encode-score-input"
+                            type="number"
+                            name="scores[<?= $partId ?>]"
+                            min="0"
+                            max="<?= e((string)$maxScore) ?>"
+                            step="0.01"
+                            value="<?= e($value === '' ? '0.00' : number_format((float)$value, 2, '.', '')) ?>"
+                            <?= $inputAttrs ?>
+                            <?= $requiredAttr ?>
+                          >
+                          <span class="encode-score-suffix">pts</span>
+                        </div>
+                      </div>
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+              </section>
             </div>
           <?php endforeach; ?>
         </div>
