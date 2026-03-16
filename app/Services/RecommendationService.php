@@ -198,19 +198,12 @@ final class RecommendationService
             $coursePassed = $matrixRequiredScore > 0 && $matrixScore >= $matrixRequiredScore;
             $qualified =
                 $examResult === 'passed'
-                && $coursePassed
-                && $passedThresholds
-                && $cctChoiceResult
-                && $choiceResult
-                && $strandResult
-                && $gpaResult
-                && $riasecResult;
+                && $passedThresholds;
             $bonusScore = self::calculateBonusScore(
                 $row['honors_awards_points'] === null ? null : (float)$row['honors_awards_points'],
                 $row['residence_points'] === null ? null : (float)$row['residence_points'],
                 $row['other_screening_points'] === null ? null : (float)$row['other_screening_points']
             );
-            $qualified = $qualified && $physicalResult;
             $overallScore = $displayScores['achievement'] + $displayScores['aptitude'] + $displayScores['personality'] + $bonusScore;
             $matrixPercent = $matrixRequiredScore > 0 ? ($matrixScore / $matrixRequiredScore) * 100.0 : 0.0;
 
