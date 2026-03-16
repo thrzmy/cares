@@ -1,6 +1,6 @@
-# CARES
+# Web-Based Admission Test Assessment with Intelligent Course Recommendation
 
-CARES is a lightweight PHP application for admissions account management, student scoring, course recommendation and administrative workflows.
+This is a lightweight PHP application for admissions account management, student scoring, course recommendation and administrative workflows.
 
 ## Features
 
@@ -82,7 +82,7 @@ All config values are loaded from `.env` at runtime.
 
 ```env
 APP_URL="http://localhost:8000"
-APP_NAME="CAReS"
+APP_NAME="Web-Based Admission Test Assessment with Intelligent Course Recommendation"
 BASE_PATH=""
 APP_TIMEZONE="Asia/Manila"
 
@@ -96,7 +96,7 @@ APP_DEBUG="true"
 
 BREVO_API_KEY=""
 MAIL_FROM_EMAIL="no-reply@cares.local"
-MAIL_FROM_NAME="CAReS"
+MAIL_FROM_NAME="Web-Based Admission Test Assessment with Intelligent Course Recommendation"
 EMAIL_VERIFICATION_TTL_MINUTES="15"
 EMAIL_VERIFICATION_RESEND_SECONDS="60"
 ```
@@ -222,7 +222,7 @@ Use this section when onboarding a client domain/email.
    ```env
    BREVO_API_KEY="your_brevo_api_key_here"
    MAIL_FROM_EMAIL="verified_sender@clientdomain.com" #registered email if free version
-   MAIL_FROM_NAME="CAReS"
+   MAIL_FROM_NAME="Web-Based Admission Test Assessment with Intelligent Course Recommendation"
    ```
 
 4. Restart PHP/web server.

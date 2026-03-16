@@ -361,7 +361,7 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
                 <img src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="CCT Logo" class="brand-logo">
                 <div class="brand-copy">
                     <h1>City College of Tagaytay</h1>
-                    <p>Course Admission and Recommendation System</p>
+                    <p>Web-Based Admission Test Assessment with Intelligent Course Recommendation</p>
                 </div>
                 <img src="<?= e(BASE_PATH) ?>/assets/img/scs_logo.png" alt="SCS Logo" class="brand-logo">
             </div>
@@ -370,7 +370,7 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
                     <h2 class="report-kicker-title"><?= e($reportTitle) ?></h2>
                     <p class="report-kicker-subtitle">Generated from the administrator reporting module.</p>
                 </div>
-                <div class="meta-label">CAReS Print Output</div>
+                <div class="meta-label">Print Output</div>
             </div>
         </header>
 
@@ -503,7 +503,7 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
                 <div class="cell-subtitle">Administrator / Prepared By</div>
             </div>
             <div class="footer-note">
-                City College of Tagaytay - CAReS<br>
+                City College of Tagaytay - Admission Test Assessment<br>
                 <?= e($reportTitle) ?>
             </div>
         </footer>

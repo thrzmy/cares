@@ -85,7 +85,7 @@ declare(strict_types=1);
             <img src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="City College of Tagaytay logo">
             <div>
                 <div class="kicker">Academic Portal</div>
-                <div style="font-weight: 700; color: #6f1119;">CAReS</div>
+                <div style="font-weight: 700; color: #6f1119;">Admission Test Assessment</div>
             </div>
         </div>
         <div class="kicker">419 Session Expired</div>

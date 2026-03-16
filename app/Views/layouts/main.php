@@ -35,8 +35,8 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                 <div class="brand-wrapper d-flex align-items-center gap-3">
                     <img src="<?= e(BASE_PATH) ?>/assets/img/cct_logo.png" alt="CCT Logo" class="brand-logo">
                     <div class="brand-text d-flex flex-column">
-                        <span class="brand-title fw-bold fs-4 text-white font-cinzel">CARES</span>
-                        <span class="brand-subtitle text-white-50" style="font-size: 0.7rem;">City College of Tagaytay</span>
+                        <span class="brand-title fw-bold text-white font-cinzel" style="font-size: 1.05rem; line-height: 1.15;">Admission Test Assessment</span>
+                        <span class="brand-subtitle text-white-50" style="font-size: 0.68rem; line-height: 1.2;">with Intelligent Course Recommendation</span>
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white d-lg-none py-3 pe-3 ps-0 m-0" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu" aria-label="Close"></button>
@@ -172,7 +172,7 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                     <button class="btn btn-link text-dark p-0 border-0 text-maroon" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu">
                         <i class="fa-solid fa-bars fs-4"></i>
                     </button>
-                    <span class="fs-5 fw-bold font-cinzel text-maroon m-0">CARES</span>
+                    <span class="fs-6 fw-bold font-cinzel text-maroon m-0">Admission Test Assessment</span>
                 </div>
             </header>
 

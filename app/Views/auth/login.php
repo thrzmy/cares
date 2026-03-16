@@ -15,9 +15,9 @@ $old = $old ?? ['email' => ''];
           </div>
           <img class="auth-logo auth-logo--sub" src="<?= e(BASE_PATH) ?>/assets/img/scs_logo.png" alt="School of Computer Science logo">
         </div>
-        <h4 class="fw-bold mb-1 auth-title">Welcome to <?= e(APP_NAME) ?></h4>
+        <h4 class="fw-bold mb-1 auth-title">Welcome</h4>
         <div class="text-muted small mb-2">
-          Course Admission and Recommendation System (CAReS)
+          <?= e(APP_NAME) ?>
         </div>
         <p class="text-muted mb-4">Sign in to continue.</p>
         
