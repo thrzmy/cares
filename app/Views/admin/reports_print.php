@@ -44,6 +44,104 @@ $displayAcademicLabel = static function (array $row): string {
 
 $testedCount = max(0, (int)($summary['students_total'] ?? 0) - (int)($summary['students_without_scores'] ?? 0));
 $reportTitle = $reportTitles[$reportType] ?? 'Print Report';
+$pageSize = in_array($reportType, ['test_results', 'course_recommendation'], true) ? 'A4 landscape' : 'A4 portrait';
+
+$examStatusTotals = [
+    'pending' => 0,
+    'passed' => 0,
+    'failed' => 0,
+];
+foreach ($studentStatusCounts as $row) {
+    $statusKey = (string)($row['status'] ?? '');
+    if (isset($examStatusTotals[$statusKey])) {
+        $examStatusTotals[$statusKey] = (int)($row['total'] ?? 0);
+    }
+}
+
+$averageTotalExamScore = 0.0;
+if ($reportType === 'test_results' && !empty($reportData)) {
+    $sum = 0.0;
+    foreach ($reportData as $row) {
+        $sum += (float)($row['total_exam_score'] ?? 0);
+    }
+    $averageTotalExamScore = $sum / count($reportData);
+}
+
+$recommendationProgramCounts = [];
+if ($reportType === 'course_recommendation') {
+    foreach ($reportData as $row) {
+        $courseCode = (string)($row['recommendation']['course_code'] ?? '');
+        if ($courseCode === '') {
+            continue;
+        }
+        if (!isset($recommendationProgramCounts[$courseCode])) {
+            $recommendationProgramCounts[$courseCode] = [
+                'course_code' => $courseCode,
+                'course_name' => (string)($row['recommendation']['course_name'] ?? ''),
+                'count' => 0,
+                'total_score' => 0.0,
+            ];
+        }
+        $recommendationProgramCounts[$courseCode]['count']++;
+        $recommendationProgramCounts[$courseCode]['total_score'] += (float)($row['recommendation']['final_score'] ?? 0);
+    }
+    uasort($recommendationProgramCounts, static function (array $a, array $b): int {
+        if ($a['count'] === $b['count']) {
+            return $b['total_score'] <=> $a['total_score'];
+        }
+        return $b['count'] <=> $a['count'];
+    });
+}
+
+$sortedExamParts = $examParts;
+usort($sortedExamParts, static function (array $a, array $b): int {
+    $aAvg = $a['avg_score'] !== null ? (float)$a['avg_score'] : -1;
+    $bAvg = $b['avg_score'] !== null ? (float)$b['avg_score'] : -1;
+    return $bAvg <=> $aAvg;
+});
+
+$reportSubtitleMap = [
+    'applicant_list' => 'Student directory and score-encoding readiness for the selected period.',
+    'test_results' => 'Recorded admission test performance and completion status for the selected period.',
+    'course_recommendation' => 'Recommended-program snapshot based on the latest available student scores.',
+];
+
+$distributionTitleMap = [
+    'applicant_list' => 'Applicant Exam Status Snapshot',
+    'test_results' => 'Result Distribution',
+    'course_recommendation' => 'Exam Qualification Snapshot',
+];
+
+$detailSectionTitleMap = [
+    'applicant_list' => 'Applicant Directory',
+    'test_results' => 'Test Result Listing',
+    'course_recommendation' => 'Recommendation Listing',
+];
+
+$typeSummaryCards = [];
+if ($reportType === 'applicant_list') {
+    $typeSummaryCards = [
+        ['label' => 'Applicants', 'value' => (string)($summary['students_total'] ?? 0), 'hint' => 'Students included in this print'],
+        ['label' => 'With Scores', 'value' => (string)$testedCount, 'hint' => 'Students with recorded exam entries'],
+        ['label' => 'Pending Eval', 'value' => (string)$examStatusTotals['pending'], 'hint' => 'Still incomplete or not yet decided'],
+        ['label' => 'Score Entries', 'value' => (string)($summary['score_entries'] ?? 0), 'hint' => 'All recorded exam-part entries'],
+    ];
+} elseif ($reportType === 'test_results') {
+    $typeSummaryCards = [
+        ['label' => 'Tested Students', 'value' => (string)$testedCount, 'hint' => 'Students with saved exam records'],
+        ['label' => 'Passed', 'value' => (string)$examStatusTotals['passed'], 'hint' => 'Live exam result'],
+        ['label' => 'Failed', 'value' => (string)$examStatusTotals['failed'], 'hint' => 'Live exam result'],
+        ['label' => 'Avg Total Score', 'value' => number_format($averageTotalExamScore, 2), 'hint' => 'Average total across printed rows'],
+    ];
+} else {
+    $topProgram = reset($recommendationProgramCounts) ?: null;
+    $typeSummaryCards = [
+        ['label' => 'Applicants', 'value' => (string)($summary['students_total'] ?? 0), 'hint' => 'Students in the selected period'],
+        ['label' => 'With Recommendation', 'value' => (string)($summary['students_with_recommendations'] ?? 0), 'hint' => 'Students with a top recommendation'],
+        ['label' => 'No Recommendation', 'value' => (string)max(0, (int)($summary['students_total'] ?? 0) - (int)($summary['students_with_recommendations'] ?? 0)), 'hint' => 'Students still without a recommendation'],
+        ['label' => 'Top Program', 'value' => $topProgram['course_code'] ?? 'N/A', 'hint' => $topProgram ? ((string)$topProgram['count'] . ' student(s)') : 'No ranked program yet'],
+    ];
+}
 
 $sigStmt = Database::pdo()->prepare("SELECT name FROM users WHERE id = :id");
 $sigStmt->execute([':id' => currentUserId()]);
@@ -67,7 +165,7 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
         }
 
         @page {
-            size: A4 portrait;
+            size: <?= $pageSize ?>;
             margin: 14mm 14mm 18mm 14mm;
         }
 
@@ -215,6 +313,12 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
             line-height: 1;
             font-weight: 700;
             color: var(--cares-maroon);
+        }
+
+        .summary-hint {
+            margin-top: 6px;
+            color: var(--cares-muted);
+            font-size: 7.8pt;
         }
 
         .section {
@@ -368,7 +472,7 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
             <div class="report-kicker">
                 <div>
                     <h2 class="report-kicker-title"><?= e($reportTitle) ?></h2>
-                    <p class="report-kicker-subtitle">Generated from the administrator reporting module.</p>
+                    <p class="report-kicker-subtitle"><?= e($reportSubtitleMap[$reportType] ?? 'Generated from the administrator reporting module.') ?></p>
                 </div>
                 <div class="meta-label">Print Output</div>
             </div>
@@ -390,27 +494,18 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
         </section>
 
         <section class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-label">Applicants</div>
-                <div class="summary-value"><?= e((string)($summary['students_total'] ?? 0)) ?></div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">Without Scores</div>
-                <div class="summary-value"><?= e((string)($summary['students_without_scores'] ?? 0)) ?></div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">Recommended</div>
-                <div class="summary-value"><?= e((string)($summary['students_with_recommendations'] ?? 0)) ?></div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">Score Entries</div>
-                <div class="summary-value"><?= e((string)($summary['score_entries'] ?? 0)) ?></div>
-            </div>
+            <?php foreach ($typeSummaryCards as $card): ?>
+                <div class="summary-card">
+                    <div class="summary-label"><?= e((string)$card['label']) ?></div>
+                    <div class="summary-value"><?= e((string)$card['value']) ?></div>
+                    <div class="summary-hint"><?= e((string)$card['hint']) ?></div>
+                </div>
+            <?php endforeach; ?>
         </section>
 
         <?php if (!empty($studentStatusCounts)): ?>
             <section class="section">
-                <h3 class="section-title">Exam Result Snapshot</h3>
+                <h3 class="section-title"><?= e($distributionTitleMap[$reportType] ?? 'Exam Result Snapshot') ?></h3>
                 <div class="section-panel">
                     <div class="badge-list">
                         <?php foreach ($studentStatusCounts as $row): ?>
@@ -425,7 +520,7 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
         <?php endif; ?>
 
         <section class="section">
-            <h3 class="section-title">Report Details</h3>
+            <h3 class="section-title"><?= e($detailSectionTitleMap[$reportType] ?? 'Report Details') ?></h3>
             <div class="section-panel">
                 <table>
                     <thead>
@@ -495,6 +590,74 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
                 </table>
             </div>
         </section>
+
+        <?php if ($reportType === 'applicant_list'): ?>
+            <section class="section">
+                <h3 class="section-title">Applicant Readiness</h3>
+                <div class="section-panel">
+                    <div class="badge-list">
+                        <span class="status-chip">With Scores <strong><?= e((string)$testedCount) ?></strong></span>
+                        <span class="status-chip">Without Scores <strong><?= e((string)($summary['students_without_scores'] ?? 0)) ?></strong></span>
+                        <span class="status-chip">Pending Evaluation <strong><?= e((string)$examStatusTotals['pending']) ?></strong></span>
+                    </div>
+                </div>
+            </section>
+        <?php elseif ($reportType === 'test_results' && !empty($sortedExamParts)): ?>
+            <section class="section">
+                <h3 class="section-title">Exam Part Averages</h3>
+                <div class="section-panel">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Exam Part</th>
+                                <th style="width: 14%;" class="text-center">Max</th>
+                                <th style="width: 16%;" class="text-center">Entries</th>
+                                <th style="width: 18%;" class="text-center">Average</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach (array_slice($sortedExamParts, 0, 8) as $row): ?>
+                                <tr>
+                                    <td><div class="cell-title"><?= e((string)$row['name']) ?></div></td>
+                                    <td class="text-center"><?= e(number_format((float)$row['max_score'], 0)) ?></td>
+                                    <td class="text-center"><?= e((string)$row['entries']) ?></td>
+                                    <td class="text-center"><span class="pill-score"><?= $row['avg_score'] !== null ? e(number_format((float)$row['avg_score'], 2)) : '-' ?></span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        <?php elseif ($reportType === 'course_recommendation' && !empty($recommendationProgramCounts)): ?>
+            <section class="section">
+                <h3 class="section-title">Top Recommended Programs</h3>
+                <div class="section-panel">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Program</th>
+                                <th style="width: 16%;" class="text-center">Students</th>
+                                <th style="width: 18%;" class="text-center">Avg Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach (array_slice(array_values($recommendationProgramCounts), 0, 6) as $row): ?>
+                                <tr>
+                                    <td>
+                                        <div class="cell-title"><?= e((string)$row['course_code']) ?></div>
+                                        <div class="cell-subtitle"><?= e((string)$row['course_name']) ?></div>
+                                    </td>
+                                    <td class="text-center"><?= e((string)$row['count']) ?></td>
+                                    <td class="text-center">
+                                        <span class="pill-score"><?= e(number_format(((float)$row['total_score'] / max(1, (int)$row['count'])), 2)) ?>%</span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        <?php endif; ?>
 
         <footer class="report-footer">
             <div class="prepared-by">
