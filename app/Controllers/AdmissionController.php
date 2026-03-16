@@ -194,14 +194,14 @@ final class AdmissionController
 
         $upload = $_FILES['bulk_file'] ?? null;
         if (!is_array($upload) || (int)($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            flash('error', 'Please choose a valid CSV or XLSX file.');
+            flash('error', 'Please choose a valid CSV file.');
             redirect('/admission/encode');
         }
 
         $originalName = (string)($upload['name'] ?? '');
         $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         if (!in_array($extension, ['csv', 'xlsx'], true)) {
-            flash('error', 'Unsupported file type. Please upload a CSV or XLSX file.');
+            flash('error', 'Unsupported file type. Please upload a CSV file.');
             redirect('/admission/encode');
         }
 

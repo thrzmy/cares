@@ -34,7 +34,7 @@ $activeSemester = $activeSemester ?? null;
     <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mb-3">
       <div>
         <h6 class="fw-bold mb-1">Bulk Upload</h6>
-        <div class="text-muted small">Upload a CSV or XLSX file using the college admission test format to import student data and exam scores.</div>
+        <div class="text-muted small">Upload a CSV file using the college admission test format to import student data and exam scores.</div>
       </div>
       <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode/template">Download CSV Template</a>
     </div>
@@ -50,7 +50,7 @@ $activeSemester = $activeSemester ?? null;
           <button class="btn btn-primary" type="submit">Upload and Import</button>
         </div>
       </div>
-      <div class="form-text mt-2">Supported formats: `.csv`, `.xlsx`. The importer uses `Application Number` as the main student key.</div>
+      <div class="form-text mt-2">Supported formats: `.csv`. The importer uses `Application Number` as the main student key.</div>
     </form>
   </div>
 </div>
