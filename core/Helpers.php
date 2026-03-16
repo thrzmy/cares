@@ -2,9 +2,19 @@
 
 declare(strict_types=1);
 
-function e(string $value): string
+function e(mixed $value): string
 {
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    if ($value === null) {
+        return '';
+    }
+
+    if (is_bool($value)) {
+        $value = $value ? '1' : '0';
+    } elseif (!is_scalar($value)) {
+        $value = (string)json_encode($value);
+    }
+
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
 function csrfToken(): string
@@ -74,11 +84,43 @@ function isActive(string $path): string
 function studentStatusBadgeClass(string $status): string
 {
     return match (strtolower($status)) {
-        'admitted' => 'text-bg-success',
-        'rejected' => 'text-bg-danger',
-        'waitlisted' => 'text-bg-info',
+        'passed' => 'text-bg-success',
+        'failed' => 'text-bg-danger',
         'pending' => 'text-bg-warning',
         default => 'text-bg-secondary',
+    };
+}
+
+function studentStatusLabel(string $status): string
+{
+    return match (strtolower($status)) {
+        'passed' => 'Passed',
+        'failed' => 'Failed',
+        'pending' => 'Pending',
+        default => ucfirst(str_replace('_', ' ', $status)),
+    };
+}
+
+function studentScreeningStatusLabel(string $status): string
+{
+    return match (strtolower($status)) {
+        'qualified' => 'Qualified',
+        'not_qualified' => 'Not Qualified',
+        'pending' => 'Pending',
+        default => ucfirst(str_replace('_', ' ', $status)),
+    };
+}
+
+function studentApplicationStatusLabel(string $status): string
+{
+    return match (strtolower($status)) {
+        'new_student' => 'New Student',
+        'transferee' => 'Transferee',
+        'returning_student' => 'Returning Student',
+        'adult_learner' => 'Adult Learner',
+        'old_curriculum' => 'Old Curriculum',
+        'als_passer' => 'ALS Passer',
+        default => ucfirst(str_replace('_', ' ', $status)),
     };
 }
 
@@ -93,4 +135,33 @@ function appFromDb(?string $value): ?DateTimeImmutable
         return null;
     }
     return new DateTimeImmutable($value, new DateTimeZone(APP_TIMEZONE));
+}
+
+function screeningBonusMaxPoints(string $field): ?int
+{
+    return match ($field) {
+        'honors_awards_points', 'residence_points', 'other_screening_points' => 5,
+        default => null,
+    };
+}
+
+function screeningHonorsPointPresets(): array
+{
+    return [
+        ['label' => 'Valedictorian', 'points' => 5],
+        ['label' => 'Salutatorian', 'points' => 3],
+        ['label' => 'Academic Distinction', 'points' => 1],
+        ['label' => 'Non-Academic Distinction', 'points' => 1],
+    ];
+}
+
+function screeningFieldHelperText(string $field): ?string
+{
+    return match ($field) {
+        'physical_requirement_status' => 'Use for programs with physical screening such as BSTM. Leave as pending if not yet checked.',
+        'honors_awards_points' => 'Workbook guide: Valedictorian = 5, Salutatorian = 3, Academic or Non-Academic Distinction = 1.',
+        'residence_points' => 'Workbook guide: residence uses plus points up to a maximum of 5.',
+        'other_screening_points' => 'Workbook guide: other approved screening factors use plus points up to a maximum of 5.',
+        default => null,
+    };
 }

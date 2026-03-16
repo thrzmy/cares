@@ -12,6 +12,10 @@ coverage/
 /storage/sessions/
 /tmp/
 /tmp_unzip/
+/tmp_admission_scoring_unzip/
+/tmp_edge_profile/
+/tmp_admission_scoring.xlsx
+/tmp_admission_scoring.zip
 /test_engine.php
 /check_schema_final.php
 /tmp_check_sem14.php

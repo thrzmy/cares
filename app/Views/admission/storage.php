@@ -42,16 +42,15 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
   <div class="row g-2 align-items-end">
   <div class="col-12 col-md-8">
     <label class="form-label small">Search</label>
-    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or ID number">
+    <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or application number">
   </div>
   <div class="col-12 col-md-4">
-    <label class="form-label small">Status</label>
+    <label class="form-label small">Exam Result</label>
     <select class="form-select" name="status">
       <option value="">All statuses</option>
       <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
-      <option value="admitted" <?= ($statusFilter ?? '') === 'admitted' ? 'selected' : '' ?>>Admitted</option>
-      <option value="rejected" <?= ($statusFilter ?? '') === 'rejected' ? 'selected' : '' ?>>Rejected</option>
-      <option value="waitlisted" <?= ($statusFilter ?? '') === 'waitlisted' ? 'selected' : '' ?>>Waitlisted</option>
+      <option value="passed" <?= ($statusFilter ?? '') === 'passed' ? 'selected' : '' ?>>Passed</option>
+      <option value="failed" <?= ($statusFilter ?? '') === 'failed' ? 'selected' : '' ?>>Failed</option>
     </select>
   </div>
   </div>
@@ -110,7 +109,9 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
             <div>
               <div class="fw-semibold"><?= e($s['name']) ?></div>
               <div class="text-muted small"><?= e($s['email']) ?></div>
-              <div class="text-muted small">ID: <?= e((string)($s['id_number'] ?? 'Not set')) ?></div>
+              <div class="text-muted small">Application No.: <?= e((string)($s['application_number'] ?? 'Not set')) ?></div>
+              <div class="text-muted small">Application Status: <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?></div>
+              <div class="text-muted small">Screening Status: <?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></div>
               <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
                 <div class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
               <?php endif; ?>
@@ -119,7 +120,7 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
               <span class="badge text-bg-dark">Archived</span>
             <?php else: ?>
               <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-                <?= e(ucfirst((string)($s['status'] ?? 'pending'))) ?>
+                <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
               </span>
             <?php endif; ?>
           </div>
@@ -135,9 +136,9 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
         <thead class="table-light">
           <tr>
             <th>Name</th>
-            <th>ID Number</th>
+            <th>Application Number</th>
             <th>Email</th>
-            <th><?= $recordScopeFilter === 'archived' ? 'Academic Year & Semester' : 'Status' ?></th>
+            <th><?= $recordScopeFilter === 'archived' ? 'Academic Year & Semester' : 'Screening / Exam Result' ?></th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
@@ -146,15 +147,14 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
             <?php $isArchived = (int)($s['is_deleted'] ?? 0) === 1 || (int)($s['is_archived'] ?? 0) === 1; ?>
             <tr>
               <td class="fw-semibold"><?= e($s['name']) ?></td>
-              <td><?= e((string)($s['id_number'] ?? 'Not set')) ?></td>
+              <td><?= e((string)($s['application_number'] ?? 'Not set')) ?></td>
               <td><?= e($s['email']) ?></td>
               <td>
                 <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
                   <div class="fw-semibold"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
                 <?php else: ?>
-                  <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-                    <?= e(ucfirst((string)($s['status'] ?? 'pending'))) ?>
-                  </span>
+                  <div class="fw-semibold"><?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></div>
+                  <div class="text-muted small">Exam Result: <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></div>
                 <?php endif; ?>
               </td>
               <td class="text-end">

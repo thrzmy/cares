@@ -2,7 +2,7 @@
 -- Compatible with MySQL 8+
 
 ALTER TABLE students
-ADD COLUMN first_name VARCHAR(75) AFTER id_number,
+ADD COLUMN first_name VARCHAR(75) AFTER application_number,
 ADD COLUMN last_name VARCHAR(75) AFTER first_name;
 
 -- Simple split: everything before the last space is first_name, everything after is last_name

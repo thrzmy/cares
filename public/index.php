@@ -140,6 +140,8 @@ $router->get('/admission/dashboard', [AdmissionController::class, 'dashboard']);
 $router->get('/admission/encode', [AdmissionController::class, 'encode']);
 $router->get('/admission/encode/edit', [AdmissionController::class, 'editScores']);
 $router->post('/admission/encode/edit', [AdmissionController::class, 'saveScores']);
+$router->post('/admission/encode/bulk', [AdmissionController::class, 'bulkUploadScores']);
+$router->get('/admission/encode/template', [AdmissionController::class, 'downloadBulkUploadTemplate']);
 $router->get('/admission/results', [AdmissionController::class, 'results']);
 $router->get('/admission/results/view', [AdmissionController::class, 'viewScores']);
 $router->get('/admission/reports', [AdmissionController::class, 'reports']);
@@ -170,6 +172,7 @@ $router->post('/administrator/semesters/restore-semester', [SemesterController::
 
 // ── Matrix Course/Part Management (Admin) ──
 $router->post('/administrator/matrix/add-course', [AdminController::class, 'addCourse']);
+$router->post('/administrator/matrix/update-course', [AdminController::class, 'updateCourse']);
 $router->post('/administrator/matrix/delete-course', [AdminController::class, 'deleteCourse']);
 $router->post('/administrator/matrix/add-part', [AdminController::class, 'addExamPart']);
 

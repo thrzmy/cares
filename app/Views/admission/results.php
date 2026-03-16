@@ -5,6 +5,32 @@ $error = $error ?? null;
 $recommendations = $recommendations ?? [];
 $recordScopeFilter = 'active';
 $activeSemester = $activeSemester ?? null;
+
+$recommendationDisplay = static function (array $recs): array {
+  $choiceMatches = array_values(array_filter($recs, static fn(array $rec): bool => !empty($rec['is_first_choice']) || !empty($rec['is_second_choice'])));
+
+  if (!empty($choiceMatches)) {
+    return [
+      'state' => 'choice_match',
+      'items' => $choiceMatches,
+      'message' => null,
+    ];
+  }
+
+  if (!empty($recs)) {
+    return [
+      'state' => 'other_match',
+      'items' => $recs,
+      'message' => 'Qualified in other programs, but not in the selected choices.',
+    ];
+  }
+
+  return [
+    'state' => 'none',
+    'items' => [],
+    'message' => 'No qualified program recommendation.',
+  ];
+};
 ?>
 <div class="page-header mb-3">
   <div>
@@ -35,16 +61,15 @@ $activeSemester = $activeSemester ?? null;
   <div class="row g-2 align-items-end">
     <div class="col-12 col-md-8">
       <label class="form-label small">Search Students</label>
-      <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or ID number">
+      <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or application number">
     </div>
     <div class="col-12 col-md-4">
-      <label class="form-label small">Admission Status</label>
+      <label class="form-label small">Exam Result</label>
       <select class="form-select" name="status">
         <option value="">All statuses</option>
         <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
-        <option value="admitted" <?= ($statusFilter ?? '') === 'admitted' ? 'selected' : '' ?>>Admitted</option>
-        <option value="rejected" <?= ($statusFilter ?? '') === 'rejected' ? 'selected' : '' ?>>Rejected</option>
-        <option value="waitlisted" <?= ($statusFilter ?? '') === 'waitlisted' ? 'selected' : '' ?>>Waitlisted</option>
+        <option value="passed" <?= ($statusFilter ?? '') === 'passed' ? 'selected' : '' ?>>Passed</option>
+        <option value="failed" <?= ($statusFilter ?? '') === 'failed' ? 'selected' : '' ?>>Failed</option>
       </select>
     </div>
   </div>
@@ -63,30 +88,46 @@ $activeSemester = $activeSemester ?? null;
 <?php if (!empty($students)): ?>
   <div class="d-block d-md-none">
     <?php foreach ($students as $s): ?>
+      <?php $recDisplay = $recommendationDisplay($recommendations[(int)$s['id']] ?? []); ?>
       <div class="card shadow-sm mb-3">
         <div class="card-body">
           <div class="d-flex align-items-start justify-content-between gap-2">
             <div>
               <div class="fw-semibold"><?= e($s['name']) ?></div>
               <div class="text-muted small"><?= e($s['email']) ?></div>
+              <div class="text-muted small">Application No.: <?= e((string)($s['application_number'] ?? 'Not provided')) ?></div>
+              <div class="text-muted small mt-1">
+                App: <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?>
+                &middot;
+                Exam: <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
+              </div>
             </div>
             <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-              <?= e(ucfirst((string)($s['status'] ?? 'pending'))) ?>
+              <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
             </span>
           </div>
-          <?php $recs = $recommendations[(int)$s['id']] ?? []; ?>
-          <?php if (!empty($recs)): ?>
+          <?php if (!empty($recDisplay['items'])): ?>
             <div class="mt-3">
-              <div class="text-muted small mb-1">Recommended Program</div>
-              <?php foreach ($recs as $rec): ?>
+              <div class="text-muted small mb-1">Programs</div>
+              <?php foreach ($recDisplay['items'] as $rec): ?>
                 <div class="d-flex justify-content-between small">
-                  <span><?= e($rec['course_code']) ?></span>
-                  <span class="text-muted"><?= e(number_format((float)$rec['total_score'], 2)) ?></span>
+                  <span>
+                    <?= e($rec['course_code']) ?>
+                    <?php if (!empty($rec['is_first_choice'])): ?>
+                      <span class="text-muted">- 1st Choice</span>
+                    <?php elseif (!empty($rec['is_second_choice'])): ?>
+                      <span class="text-muted">- 2nd Choice</span>
+                    <?php endif; ?>
+                  </span>
+                  <span class="text-muted"><?= e(number_format((float)$rec['total_score'], 2)) ?>%</span>
                 </div>
               <?php endforeach; ?>
+              <?php if (!empty($recDisplay['message'])): ?>
+                <div class="text-muted small mt-2"><?= e($recDisplay['message']) ?></div>
+              <?php endif; ?>
             </div>
           <?php else: ?>
-            <div class="text-muted small mt-2">No recommendations available yet.</div>
+            <div class="text-muted small mt-2"><?= e((string)$recDisplay['message']) ?></div>
           <?php endif; ?>
           <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/admission/results/view?id=<?= (int)$s['id'] ?>">View Summary</a>
         </div>
@@ -99,34 +140,48 @@ $activeSemester = $activeSemester ?? null;
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
           <tr>
+            <th>Application Number</th>
             <th>Name</th>
             <th>Email</th>
             <th>Status</th>
-            <th>Recommended Program</th>
+            <th>Qualified Program(s)</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($students as $s): ?>
+            <?php $recDisplay = $recommendationDisplay($recommendations[(int)$s['id']] ?? []); ?>
             <tr>
+              <td class="fw-semibold"><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
               <td class="fw-semibold"><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
               <td>
-                <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-                  <?= e(ucfirst((string)($s['status'] ?? 'pending'))) ?>
-                </span>
+                <div class="d-flex flex-wrap gap-1">
+                  <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
+                    <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
+                  </span>
+                </div>
               </td>
               <td>
-                <?php $recs = $recommendations[(int)$s['id']] ?? []; ?>
-                <?php if (!empty($recs)): ?>
-                  <?php foreach ($recs as $rec): ?>
+                <?php if (!empty($recDisplay['items'])): ?>
+                  <?php foreach ($recDisplay['items'] as $rec): ?>
                     <div class="d-flex justify-content-between small">
-                      <span><?= e($rec['course_code']) ?></span>
-                      <span class="text-muted"><?= e(number_format((float)$rec['total_score'], 2)) ?></span>
+                      <span>
+                        <?= e($rec['course_code']) ?>
+                        <?php if (!empty($rec['is_first_choice'])): ?>
+                          <span class="text-muted">- 1st Choice</span>
+                        <?php elseif (!empty($rec['is_second_choice'])): ?>
+                          <span class="text-muted">- 2nd Choice</span>
+                        <?php endif; ?>
+                      </span>
+                      <span class="text-muted"><?= e(number_format((float)$rec['total_score'], 2)) ?>%</span>
                     </div>
                   <?php endforeach; ?>
+                  <?php if (!empty($recDisplay['message'])): ?>
+                    <div class="text-muted small mt-1"><?= e($recDisplay['message']) ?></div>
+                  <?php endif; ?>
                 <?php else: ?>
-                  <span class="text-muted small">No recommendations</span>
+                  <span class="text-muted small"><?= e((string)$recDisplay['message']) ?></span>
                 <?php endif; ?>
               </td>
               <td class="text-end">

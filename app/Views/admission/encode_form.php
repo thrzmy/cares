@@ -52,7 +52,7 @@ $requiredAttr = $isView ? '' : 'required';
   <div class="card shadow-sm mb-3">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-        <h6 class="fw-bold mb-0">Top Recommended Programs</h6>
+        <h6 class="fw-bold mb-0">Qualified Programs</h6>
         <span class="badge text-bg-light border"><?= e((string)count($recommendations)) ?> item(s)</span>
       </div>
       <?php if (!empty($recommendations)): ?>
@@ -65,6 +65,11 @@ $requiredAttr = $isView ? '' : 'required';
                   <div>
                     <div class="fw-semibold"><?= e((string)$rec['course_code']) ?></div>
                     <div class="text-muted small"><?= e((string)$rec['course_name']) ?></div>
+                    <?php if (!empty($rec['is_first_choice'])): ?>
+                      <div class="text-muted small">1st Choice</div>
+                    <?php elseif (!empty($rec['is_second_choice'])): ?>
+                      <div class="text-muted small">2nd Choice</div>
+                    <?php endif; ?>
                   </div>
                 </div>
                 <span class="badge badge-score-pill">
@@ -122,8 +127,10 @@ $requiredAttr = $isView ? '' : 'required';
                             name="scores[<?= $partId ?>]"
                             min="0"
                             max="<?= e((string)$maxScore) ?>"
-                            step="0.01"
-                            value="<?= e($value === '' ? '0.00' : number_format((float)$value, 2, '.', '')) ?>"
+                            step="1"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            value="<?= e($value === '' ? '0' : number_format((float)$value, 0, '.', '')) ?>"
                             <?= $inputAttrs ?>
                             <?= $requiredAttr ?>
                           >

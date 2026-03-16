@@ -29,13 +29,39 @@ $activeSemester = $activeSemester ?? null;
   <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mb-3">
+      <div>
+        <h6 class="fw-bold mb-1">Bulk Upload</h6>
+        <div class="text-muted small">Upload a CSV or XLSX file using the college admission test format to import student data and exam scores.</div>
+      </div>
+      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode/template">Download CSV Template</a>
+    </div>
+
+    <form method="post" action="<?= e(BASE_PATH) ?>/admission/encode/bulk" enctype="multipart/form-data">
+      <?= csrfField() ?>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-8">
+          <label class="form-label small">Spreadsheet File</label>
+          <input class="form-control" type="file" name="bulk_file" accept=".csv,.xlsx" required>
+        </div>
+        <div class="col-12 col-lg-4 d-grid">
+          <button class="btn btn-primary" type="submit">Upload and Import</button>
+        </div>
+      </div>
+      <div class="form-text mt-2">Supported formats: `.csv`, `.xlsx`. The importer uses `Application Number` as the main student key.</div>
+    </form>
+  </div>
+</div>
+
 <form class="mb-3" method="get" action="<?= e(BASE_PATH) ?>/admission/encode">
   <div class="row g-2 align-items-end">
     <div class="col-12">
       <label class="form-label small">Search Students</label>
     </div>
     <div class="col-12 col-xl-8">
-      <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or ID number">
+      <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or application number">
     </div>
     <div class="col-6 col-md-3 col-xl-2 d-grid">
       <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/encode">Clear Filters</a>

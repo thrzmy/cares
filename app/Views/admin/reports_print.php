@@ -410,12 +410,12 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
 
         <?php if (!empty($studentStatusCounts)): ?>
             <section class="section">
-                <h3 class="section-title">Student Status Snapshot</h3>
+                <h3 class="section-title">Exam Result Snapshot</h3>
                 <div class="section-panel">
                     <div class="badge-list">
                         <?php foreach ($studentStatusCounts as $row): ?>
                             <span class="status-chip">
-                                <?= e(ucfirst((string)$row['status'])) ?>
+                                <?= e(studentStatusLabel((string)$row['status'])) ?>
                                 <strong><?= e((string)$row['total']) ?></strong>
                             </span>
                         <?php endforeach; ?>
@@ -433,21 +433,21 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
                             <tr>
                                 <th style="width: 28%;">Student</th>
                                 <th>Email</th>
-                                <th style="width: 14%;">Status</th>
+                                <th style="width: 14%;">Exam Result</th>
                                 <th style="width: 28%;">Academic Term / Scores</th>
                             </tr>
                         <?php elseif ($reportType === 'test_results'): ?>
                             <tr>
                                 <th>Student</th>
-                                <th style="width: 16%;">Student ID</th>
+                                <th style="width: 16%;">Application Number</th>
                                 <th style="width: 16%;" class="text-center">Total Score</th>
-                                <th style="width: 14%;" class="text-center">Status</th>
+                                <th style="width: 14%;" class="text-center">Exam Result</th>
                                 <th style="width: 20%;" class="text-center">Latest Exam Date</th>
                             </tr>
                         <?php else: ?>
                             <tr>
                                 <th>Student</th>
-                                <th style="width: 15%;">Student ID</th>
+                                <th style="width: 15%;">Application Number</th>
                                 <th style="width: 22%;">Academic Term</th>
                                 <th style="width: 22%;">Recommended Program</th>
                                 <th style="width: 14%;" class="text-center">Overall Score</th>
@@ -467,20 +467,20 @@ $currentUser = (string)($sigStmt->fetchColumn() ?: 'Administrator');
                                             <div class="cell-title"><?= e($displayStudentName($row)) ?></div>
                                         </td>
                                         <td><?= e((string)($row['email'] ?? '')) ?></td>
-                                        <td><?= e(ucfirst((string)($row['status'] ?? 'pending'))) ?></td>
+                                        <td><?= e(studentStatusLabel((string)($row['status'] ?? 'pending'))) ?></td>
                                         <td>
                                             <div class="cell-title"><?= e($displayAcademicLabel($row)) ?></div>
                                             <div class="cell-subtitle">Score entries: <?= e((string)($row['score_entries'] ?? 0)) ?></div>
                                         </td>
                                     <?php elseif ($reportType === 'test_results'): ?>
                                         <td><div class="cell-title"><?= e($displayStudentName($row)) ?></div></td>
-                                        <td><?= e((string)($row['id_number'] ?? 'Not provided')) ?></td>
+                                        <td><?= e((string)($row['application_number'] ?? 'Not provided')) ?></td>
                                         <td class="text-center"><span class="pill-score"><?= e(number_format((float)($row['total_exam_score'] ?? 0), 2)) ?></span></td>
-                                        <td class="text-center"><?= e(ucfirst((string)($row['status'] ?? 'pending'))) ?></td>
+                                        <td class="text-center"><?= e(studentStatusLabel((string)($row['status'] ?? 'pending'))) ?></td>
                                         <td class="text-center"><?= !empty($row['exam_date']) ? e(date('M j, Y', strtotime((string)$row['exam_date']))) : 'Not available' ?></td>
                                     <?php else: ?>
                                         <td><div class="cell-title"><?= e($displayStudentName($row)) ?></div></td>
-                                        <td><?= e((string)($row['id_number'] ?? 'Not provided')) ?></td>
+                                        <td><?= e((string)($row['application_number'] ?? 'Not provided')) ?></td>
                                         <td><?= e($displayAcademicLabel($row)) ?></td>
                                         <td>
                                             <div class="cell-title"><?= e((string)($row['recommendation']['course_code'] ?? 'N/A')) ?></div>

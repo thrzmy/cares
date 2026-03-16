@@ -150,7 +150,7 @@ $buildPrintUrl = static function (string $type) use ($startDate, $endDate): stri
               <table class="table table-sm align-middle mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th>Status</th>
+                    <th>Exam Result</th>
                     <th class="text-end">Total</th>
                   </tr>
                 </thead>
@@ -206,12 +206,12 @@ $buildPrintUrl = static function (string $type) use ($startDate, $endDate): stri
   <div class="col-12 col-lg-6">
     <div class="card shadow-sm h-100">
       <div class="card-body">
-        <h6 class="fw-bold mb-2">Student Status</h6>
+        <h6 class="fw-bold mb-2">Exam Results</h6>
         <div class="table-responsive">
           <table class="table table-sm align-middle mb-0">
             <thead class="table-light">
               <tr>
-                <th>Status</th>
+                <th>Exam Result</th>
                 <th class="text-end">Total</th>
               </tr>
             </thead>
@@ -219,7 +219,7 @@ $buildPrintUrl = static function (string $type) use ($startDate, $endDate): stri
               <?php if (!empty($studentStatusCounts)): ?>
                 <?php foreach ($studentStatusCounts as $row): ?>
                   <tr>
-                    <td><?= e(ucfirst((string)$row['status'])) ?></td>
+                    <td><?= e(studentStatusLabel((string)$row['status'])) ?></td>
                     <td class="text-end"><?= e((string)$row['total']) ?></td>
                   </tr>
                 <?php endforeach; ?>

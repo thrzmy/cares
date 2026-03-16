@@ -4,6 +4,7 @@ declare(strict_types=1);
 final class WeightsService
 {
     private static ?bool $examPartCategoryColumnExists = null;
+    private static ?bool $courseCategoryColumnExists = null;
 
     public static function getExamParts(): array
     {
@@ -24,11 +25,7 @@ final class WeightsService
 
     public static function getCourses(): array
     {
-        $sql = "SELECT id, course_code, course_name
-                FROM courses
-                WHERE is_deleted = 0
-                ORDER BY course_code ASC";
-        return Database::pdo()->query($sql)->fetchAll();
+        return self::hydrateCourseCategories(self::fetchCourses());
     }
 
     public static function getCoursesCount(): int
@@ -41,8 +38,9 @@ final class WeightsService
 
     public static function getCoursesPage(int $limit, int $offset): array
     {
-        $sql = "SELECT id, course_code, course_name
-                FROM courses
+        $sql = "SELECT id, course_code, course_name"
+            . (self::hasCourseCategoryColumn() ? ", course_category" : "")
+            . " FROM courses
                 WHERE is_deleted = 0
                 ORDER BY course_code ASC
                 LIMIT :limit OFFSET :offset";
@@ -50,16 +48,37 @@ final class WeightsService
         $st->bindValue(':limit', $limit, PDO::PARAM_INT);
         $st->bindValue(':offset', $offset, PDO::PARAM_INT);
         $st->execute();
-        return $st->fetchAll();
+        return self::hydrateCourseCategories($st->fetchAll());
     }
 
     public static function getAllCourses(): array
     {
-        $sql = "SELECT id, course_code, course_name
-                FROM courses
-                WHERE is_deleted = 0
-                ORDER BY course_code ASC";
-        return Database::pdo()->query($sql)->fetchAll();
+        return self::hydrateCourseCategories(self::fetchCourses());
+    }
+
+    public static function getCourseCategories(?array $courses = null): array
+    {
+        $courses ??= self::getAllCourses();
+
+        $available = [];
+        foreach ($courses as $course) {
+            $category = trim((string)($course['course_category'] ?? ''));
+            if ($category !== '') {
+                $available[$category] = true;
+            }
+        }
+
+        $ordered = [];
+        foreach (self::courseCategoryOrder() as $category) {
+            $ordered[] = $category;
+            unset($available[$category]);
+        }
+
+        foreach (array_keys($available) as $category) {
+            $ordered[] = $category;
+        }
+
+        return $ordered;
     }
 
     /**
@@ -126,7 +145,7 @@ final class WeightsService
                         throw new RuntimeException("Invalid weight for course {$courseId}, part {$examPartId}");
                     }
 
-                    $weight = (float)$weightRaw;
+                    $weight = (float)(int)round((float)$weightRaw);
 
                     // Simple bounds (capstone-safe). Adjust later if needed.
                     if ($weight < 0 || $weight > 100) {
@@ -163,28 +182,101 @@ final class WeightsService
     /**
      * Add a new course.
      */
-    public static function addCourse(string $code, string $name): int
+    public static function addCourse(string $code, string $name, ?string $category = null): int
     {
         $pdo = Database::pdo();
+        $category = trim((string)$category);
+        if ($category === '') {
+            $category = self::fallbackCourseCategoryForCode($code);
+        }
 
         // Check for soft-deleted duplicate
-        $check = $pdo->prepare("SELECT id, is_deleted FROM courses WHERE course_code = :code LIMIT 1");
+        $check = $pdo->prepare(
+            "SELECT id, is_deleted" . (self::hasCourseCategoryColumn() ? ", course_category" : "") . "
+             FROM courses
+             WHERE course_code = :code
+             LIMIT 1"
+        );
         $check->execute([':code' => $code]);
         $existing = $check->fetch();
 
         if ($existing) {
             if ((int)$existing['is_deleted'] === 1) {
                 // Restore
-                $pdo->prepare("UPDATE courses SET course_name = :name, is_deleted = 0, deleted_at = NULL WHERE id = :id")
-                    ->execute([':name' => $name, ':id' => (int)$existing['id']]);
+                $sql = "UPDATE courses
+                        SET course_name = :name,
+                            is_deleted = 0,
+                            deleted_at = NULL";
+                if (self::hasCourseCategoryColumn()) {
+                    $sql .= ", course_category = :course_category";
+                }
+                $sql .= " WHERE id = :id";
+
+                $params = [':name' => $name, ':id' => (int)$existing['id']];
+                if (self::hasCourseCategoryColumn()) {
+                    $params[':course_category'] = $category;
+                }
+
+                $pdo->prepare($sql)->execute($params);
                 return (int)$existing['id'];
             }
             throw new RuntimeException("Course code '{$code}' already exists.");
         }
 
-        $pdo->prepare("INSERT INTO courses (course_code, course_name) VALUES (:code, :name)")
-            ->execute([':code' => $code, ':name' => $name]);
+        if (self::hasCourseCategoryColumn()) {
+            $pdo->prepare(
+                "INSERT INTO courses (course_code, course_name, course_category)
+                 VALUES (:code, :name, :course_category)"
+            )->execute([
+                ':code' => $code,
+                ':name' => $name,
+                ':course_category' => $category,
+            ]);
+        } else {
+            $pdo->prepare("INSERT INTO courses (course_code, course_name) VALUES (:code, :name)")
+                ->execute([':code' => $code, ':name' => $name]);
+        }
+
         return (int)$pdo->lastInsertId();
+    }
+
+    public static function updateCourse(int $courseId, string $code, string $name, ?string $category = null): void
+    {
+        $pdo = Database::pdo();
+        $category = trim((string)$category);
+        if ($category === '') {
+            $category = self::fallbackCourseCategoryForCode($code);
+        }
+
+        $checkSql = "SELECT id FROM courses WHERE course_code = :code AND id <> :id AND is_deleted = 0 LIMIT 1";
+        $check = $pdo->prepare($checkSql);
+        $check->execute([
+            ':code' => $code,
+            ':id' => $courseId,
+        ]);
+
+        if ($check->fetch()) {
+            throw new RuntimeException("Course code '{$code}' already exists.");
+        }
+
+        $sql = "UPDATE courses
+                SET course_code = :code,
+                    course_name = :name";
+        if (self::hasCourseCategoryColumn()) {
+            $sql .= ", course_category = :course_category";
+        }
+        $sql .= " WHERE id = :id AND is_deleted = 0";
+
+        $params = [
+            ':code' => $code,
+            ':name' => $name,
+            ':id' => $courseId,
+        ];
+        if (self::hasCourseCategoryColumn()) {
+            $params[':course_category'] = $category;
+        }
+
+        $pdo->prepare($sql)->execute($params);
     }
 
     /**
@@ -213,7 +305,7 @@ final class WeightsService
         foreach ($maxScores as $partId => $maxRaw) {
             $maxRaw = trim((string)$maxRaw);
             if ($maxRaw === '' || !is_numeric($maxRaw)) continue;
-            $max = (float)$maxRaw;
+            $max = (float)(int)round((float)$maxRaw);
             if ($max < 0) continue;
             $stmt->execute([':max' => $max, ':id' => (int)$partId]);
         }
@@ -292,5 +384,68 @@ final class WeightsService
         }
 
         return self::$examPartCategoryColumnExists;
+    }
+
+    private static function hasCourseCategoryColumn(): bool
+    {
+        if (self::$courseCategoryColumnExists !== null) {
+            return self::$courseCategoryColumnExists;
+        }
+
+        try {
+            $st = Database::pdo()->query("SHOW COLUMNS FROM courses LIKE 'course_category'");
+            self::$courseCategoryColumnExists = (bool)$st->fetch();
+        } catch (Throwable) {
+            self::$courseCategoryColumnExists = false;
+        }
+
+        return self::$courseCategoryColumnExists;
+    }
+
+    private static function fetchCourses(): array
+    {
+        $sql = "SELECT id, course_code, course_name"
+            . (self::hasCourseCategoryColumn() ? ", course_category" : "")
+            . " FROM courses
+                WHERE is_deleted = 0
+                ORDER BY course_code ASC";
+        return Database::pdo()->query($sql)->fetchAll();
+    }
+
+    private static function hydrateCourseCategories(array $courses): array
+    {
+        foreach ($courses as &$course) {
+            $course['course_category'] = trim((string)($course['course_category'] ?? ''));
+            if ($course['course_category'] === '') {
+                $course['course_category'] = self::fallbackCourseCategoryForCode((string)($course['course_code'] ?? ''));
+            }
+        }
+        unset($course);
+
+        return $courses;
+    }
+
+    private static function courseCategoryOrder(): array
+    {
+        return [
+            'BS Secondary Education',
+            'School of Business and Management',
+            'School of Hospitality and Tourism Management',
+            'School of Computer Studies',
+            'School of Arts and Sciences',
+            'Other Programs',
+        ];
+    }
+
+    private static function fallbackCourseCategoryForCode(string $courseCode): string
+    {
+        return match ($courseCode) {
+            'BSED-ENG', 'BSED-FIL', 'BSED-MATH', 'BSED-SS', 'BSED-SCI' => 'BS Secondary Education',
+            'BSHRDM', 'BSMM', 'BSOA' => 'School of Business and Management',
+            'BSTM', 'BSHM' => 'School of Hospitality and Tourism Management',
+            'BSIT', 'BSCS' => 'School of Computer Studies',
+            'ABPSY' => 'School of Arts and Sciences',
+            default => 'Other Programs',
+        };
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 final class AdmissionController
 {
+    private static ?bool $cctChoiceColumnExists = null;
+
     public static function dashboard(): void
     {
         RoleMiddleware::requireRole('admission');
@@ -26,14 +28,14 @@ final class AdmissionController
                   )
                   AND s.status = 'pending'";
         if ($q !== '') {
-            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.application_number LIKE :q_application_number)";
             $like = '%' . $q . '%';
             $params[':q_name'] = $like;
             $params[':q_email'] = $like;
-            $params[':q_id'] = $like;
+            $params[':q_application_number'] = $like;
         }
 
-        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at
+        $sql = "SELECT s.id, s.application_number, s.name, s.email, s.application_status, s.screening_status, s.status, s.created_at
                 FROM students s
                 $where
                 ORDER BY s.created_at DESC";
@@ -57,7 +59,7 @@ final class AdmissionController
 
         $id = (int)($_GET['id'] ?? 0);
         $viewMode = (string)($_GET['view'] ?? '') === '1';
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, first_choice, second_choice, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -76,7 +78,7 @@ final class AdmissionController
             $parts = WeightsService::getExamParts();
             $groupedParts = WeightsService::getExamPartsGrouped();
             $scoresMap = ScoresService::getStudentScoresMap($id);
-            $recommendations = self::getTopRecommendationsForStudent($id, 3);
+            $recommendations = RecommendationService::getQualifiedRecommendationsForStudent($id, 3);
 
             View::render('admission/encode_form', [
                 'title' => 'View Results',
@@ -99,7 +101,7 @@ final class AdmissionController
 
         View::render('admission/encode_form', [
             'title' => 'Encode Test Results',
-            'student' => $student,
+            'student' => self::decorateStudentChoiceLabels($student),
             'parts' => $parts,
             'groupedParts' => $groupedParts,
             'scoresMap' => $scoresMap,
@@ -116,7 +118,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_POST['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -140,6 +142,7 @@ final class AdmissionController
 
         try {
             ScoresService::saveStudentScores($id, $scores, $userId);
+            RecommendationService::syncStudentOutcome($id);
             Logger::log($userId, 'ENCODE_SCORES', 'students', $id, 'Admission encoded exam part scores');
             flash('success', 'Scores saved successfully.');
             if ($mode === 'edit') {
@@ -165,6 +168,191 @@ final class AdmissionController
         }
     }
 
+    public static function bulkUploadScores(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('admission');
+
+        $userId = currentUserId();
+        if ($userId === null) {
+            redirect('/login');
+        }
+
+        $activeSemester = self::getActiveSemester();
+        if ($activeSemester === null) {
+            flash('error', 'Set an active semester first before using bulk upload.');
+            redirect('/admission/encode');
+        }
+
+        $upload = $_FILES['bulk_file'] ?? null;
+        if (!is_array($upload) || (int)($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            flash('error', 'Please choose a valid CSV or XLSX file.');
+            redirect('/admission/encode');
+        }
+
+        $originalName = (string)($upload['name'] ?? '');
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['csv', 'xlsx'], true)) {
+            flash('error', 'Unsupported file type. Please upload a CSV or XLSX file.');
+            redirect('/admission/encode');
+        }
+
+        $tmpPath = (string)($upload['tmp_name'] ?? '');
+        if ($tmpPath === '' || !is_file($tmpPath)) {
+            flash('error', 'Uploaded file could not be read.');
+            redirect('/admission/encode');
+        }
+
+        try {
+            $rows = self::parseBulkUploadFile($tmpPath, $extension);
+            [$headerIndex, $headers] = self::locateBulkUploadHeader($rows);
+            $records = self::normalizeBulkUploadRecords($rows, $headerIndex, $headers);
+            $requiredColumns = self::requiredBulkUploadColumns();
+            $missingColumns = array_values(array_diff($requiredColumns, array_keys($headers)));
+            if (!empty($missingColumns)) {
+                throw new RuntimeException('Missing required column(s): ' . implode(', ', $missingColumns));
+            }
+
+            $parts = WeightsService::getExamParts();
+            $partMap = self::buildBulkExamPartHeaderMap($parts, $headers);
+
+            $pdo = Database::pdo();
+            $pdo->beginTransaction();
+
+            $inserted = 0;
+            $updated = 0;
+            $scored = 0;
+
+            foreach ($records as $index => $record) {
+                $rowNumber = $headerIndex + $index + 2;
+                if (self::isBulkRecordEmpty($record)) {
+                    continue;
+                }
+
+                $studentPayload = self::mapBulkStudentRecord($record);
+                if ($studentPayload['application_number'] === null) {
+                    throw new RuntimeException("Row {$rowNumber}: Application Number is required.");
+                }
+
+                $studentPayload['application_status'] = self::mapBulkApplicationStatus((string)($record['Application Status'] ?? ''));
+                $studentPayload['screening_status'] = self::mapBulkScreeningStatus(
+                    (string)($record['Screening Status'] ?? ''),
+                    (string)($record['Status'] ?? '')
+                );
+                $studentPayload['status'] = self::mapBulkExamResult(
+                    (string)($record['Exam Result'] ?? ''),
+                    (string)($record['Status'] ?? '')
+                );
+                $studentPayload['semester_id'] = (int)$activeSemester['id'];
+                $studentPayload['name'] = self::buildStudentName(
+                    (string)$studentPayload['last_name'],
+                    (string)$studentPayload['first_name'],
+                    (string)($studentPayload['middle_name'] ?? '')
+                );
+
+                $studentResult = self::upsertBulkStudentRecord($pdo, $studentPayload, $userId);
+                if ($studentResult['created']) {
+                    $inserted++;
+                } else {
+                    $updated++;
+                }
+
+                $scores = self::mapBulkScoresRecord($record, $partMap, $rowNumber);
+                self::saveBulkStudentScores($pdo, (int)$studentResult['id'], $scores, $userId);
+                RecommendationService::syncStudentOutcome((int)$studentResult['id']);
+                $scored++;
+            }
+
+            $pdo->commit();
+
+            Logger::log($userId, 'BULK_UPLOAD_SCORES', 'students', null, "Bulk imported {$scored} student score record(s)");
+            flash('success', "Bulk upload complete. {$inserted} student(s) created, {$updated} updated, {$scored} score record(s) imported.");
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Bulk upload failed. Please check the file format and try again.');
+        }
+
+        redirect('/admission/encode');
+    }
+
+    public static function downloadBulkUploadTemplate(): void
+    {
+        RoleMiddleware::requireRole('admission');
+
+        $headers = [
+            'Count',
+            'Rank',
+            'Last Name',
+            'First Name',
+            'Middle Name',
+            'Application Number',
+            'Application Status',
+            'City',
+            'Province',
+            'SHS Strand',
+            'GPA',
+            'Physical Requirement',
+            'Honors Awards',
+            'Residence',
+            'Others',
+            '1st Choice',
+            '2nd Choice',
+            'Score',
+            'Exam Result',
+            'Screening Status',
+            'C-CAT 001 - English',
+            'C-CAT 002 - Filipino',
+            'C-CAT 003 - Humanities',
+            'C-CAT 004 - Literature',
+            'C-CAT 005 - Mathematics',
+            'C-CAT 006 - Science',
+            'C-CAT 007 - Social Studies',
+            'C-CAT 008 - Spatial',
+            'C-CAT 009 - Verbal',
+            'C-CAT 010 - Interpersonal',
+            'C-CAT 011 - Environmental',
+            'C-CAT 012 - Customer Relations',
+            'C-CAT 013 - Teaching',
+            'C-CAT 014 -Entrepreneurial',
+            'C-CAT 015 - Clerical.',
+            'C-CAT 016 - Coding',
+            'C-CAT 017 - Speed and Accuracy',
+            'C-CAT 018 - Realistic',
+            'C-CAT 019 - Investigative',
+            'C-CAT 020 - Artistic',
+            'C-CAT 021 - Social',
+            'C-CAT 022 - Enterprising',
+            'C-CAT 023 - Conventional',
+            'C-CAT 024 - Openness',
+            'C-CAT 025 - Conscientiousness',
+            'C-CAT 026 - Extraversion',
+            'C-CAT 027 - Agreeableness',
+            'C-CAT 028 - Neuroticism',
+        ];
+
+        $activeSemester = self::getActiveSemester();
+        $title = 'CITY COLLEGE OF TAGAYTAY - COLLEGE ADMISSION TEST (C-CAT)';
+        $termLine = $activeSemester
+            ? strtoupper((string)$activeSemester['semester_name']) . ', A.Y. ' . (string)$activeSemester['school_year_name']
+            : 'CURRENT ACTIVE TERM';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=bulk-upload-template.csv');
+
+        $out = fopen('php://output', 'wb');
+        if ($out === false) {
+            return;
+        }
+
+        fputcsv($out, [$title]);
+        fputcsv($out, [$termLine]);
+        fputcsv($out, $headers);
+        fclose($out);
+        exit;
+    }
+
     public static function results(): void
     {
         RoleMiddleware::requireRole('admission');
@@ -186,13 +374,13 @@ final class AdmissionController
                       WHERE ses.student_id = s.id AND ses.is_deleted = 0
                   )";
         if ($q !== '') {
-            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.application_number LIKE :q_application_number)";
             $like = '%' . $q . '%';
             $params[':q_name'] = $like;
             $params[':q_email'] = $like;
-            $params[':q_id'] = $like;
+            $params[':q_application_number'] = $like;
         }
-        if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
@@ -214,7 +402,7 @@ final class AdmissionController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at,
+        $sql = "SELECT s.id, s.application_number, s.name, s.email, s.application_status, s.screening_status, s.status, s.created_at,
                        s.is_deleted, s.is_archived,
                        sem.name AS semester_name,
                        sy.name AS school_year_name
@@ -239,7 +427,7 @@ final class AdmissionController
                 static fn($row) => (int)$row['id'],
                 $students
             );
-            $recommendations = self::getRecommendationsForStudents($studentIds, 1);
+            $recommendations = RecommendationService::getQualifiedRecommendationsForStudents($studentIds);
         }
 
         View::render('admission/results', [
@@ -281,7 +469,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -294,7 +482,9 @@ final class AdmissionController
         $parts = WeightsService::getExamParts();
         $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
-        $courseSummaries = self::getCourseRecommendationsForStudent($id);
+        $courseSummaries = RecommendationService::getCourseEvaluationsForStudent($id);
+        $student['first_choice_label'] = self::resolveCourseChoiceLabel((string)($student['first_choice'] ?? ''));
+        $student['second_choice_label'] = self::resolveCourseChoiceLabel((string)($student['second_choice'] ?? ''));
 
         View::render('admission/view_scores', [
             'title' => 'View Scores',
@@ -335,13 +525,13 @@ final class AdmissionController
                   )";
         }
         if ($q !== '') {
-            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.application_number LIKE :q_application_number)";
             $like = '%' . $q . '%';
             $params[':q_name'] = $like;
             $params[':q_email'] = $like;
-            $params[':q_id'] = $like;
+            $params[':q_application_number'] = $like;
         }
-        if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
@@ -383,7 +573,7 @@ final class AdmissionController
             }
         }
 
-        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.created_at,
+        $sql = "SELECT s.id, s.application_number, s.name, s.email, s.application_status, s.screening_status, s.status, s.created_at,
                        s.is_deleted, s.is_archived,
                        sem.name AS semester_name,
                        sy.name AS school_year_name
@@ -418,7 +608,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -467,13 +657,13 @@ final class AdmissionController
             $where = "WHERE s.is_deleted = 0 AND COALESCE(s.is_archived, 0) = 0";
         }
         if ($q !== '') {
-            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.application_number LIKE :q_application_number)";
             $like = '%' . $q . '%';
             $params[':q_name'] = $like;
             $params[':q_email'] = $like;
-            $params[':q_id'] = $like;
+            $params[':q_application_number'] = $like;
         }
-        if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
@@ -529,7 +719,7 @@ final class AdmissionController
         }
         $offset = ($page - 1) * $perPage;
 
-        $sql = "SELECT s.id, s.id_number, s.name, s.email, s.status, s.is_deleted, s.deleted_at, s.created_at,
+        $sql = "SELECT s.id, s.application_number, s.name, s.email, s.application_status, s.screening_status, s.status, s.is_deleted, s.deleted_at, s.created_at,
                        sem.name AS semester_name,
                        sy.name AS school_year_name
                 FROM students s
@@ -586,8 +776,30 @@ final class AdmissionController
             'title' => 'Create Student',
             'mode' => 'create',
             'action' => '/admission/students/create',
-            'student' => ['name' => '', 'email' => '', 'id_number' => '', 'status' => 'pending'],
+            'student' => [
+                'first_name' => '',
+                'last_name' => '',
+                'middle_name' => '',
+                'application_number' => '',
+                'email' => '',
+                'city' => '',
+                'province' => '',
+                'shs_strand' => '',
+                'gpa' => '',
+                'physical_requirement_status' => 'pending',
+                'honors_awards_points' => '',
+                'residence_points' => '',
+                'other_screening_points' => '',
+                'cct_choice' => 'first',
+                'first_choice' => '',
+                'second_choice' => '',
+                'application_status' => 'new_student',
+                'screening_status' => 'pending',
+                'status' => 'pending',
+            ],
             'activeSemester' => self::getActiveSemester(),
+            'courseOptions' => self::studentCourseOptions(),
+            'courseSummaries' => [],
             'error' => null,
         ]);
     }
@@ -597,72 +809,200 @@ final class AdmissionController
         verifyCsrfOrFail();
         RoleMiddleware::requireRole('admission');
 
-        $name = trim((string)($_POST['name'] ?? ''));
-        $email = trim((string)($_POST['email'] ?? ''));
-        $idNumber = trim((string)($_POST['id_number'] ?? ''));
+        $lastName = trim((string)($_POST['last_name'] ?? ''));
+        $firstName = trim((string)($_POST['first_name'] ?? ''));
+        $middleName = trim((string)($_POST['middle_name'] ?? ''));
+        $applicationNumber = trim((string)($_POST['application_number'] ?? ''));
+        $rawEmail = (string)($_POST['email'] ?? '');
+        $email = self::normalizeStudentEmail($rawEmail);
+        $city = trim((string)($_POST['city'] ?? ''));
+        $province = trim((string)($_POST['province'] ?? ''));
+        $shsStrand = trim((string)($_POST['shs_strand'] ?? ''));
+        $gpaInput = trim((string)($_POST['gpa'] ?? ''));
+        $gpa = $gpaInput === '' ? null : (float)$gpaInput;
+        $physicalRequirementStatus = (string)($_POST['physical_requirement_status'] ?? 'pending');
+        $honorsAwardsInput = trim((string)($_POST['honors_awards_points'] ?? ''));
+        $honorsAwardsPoints = $honorsAwardsInput === '' ? null : (float)$honorsAwardsInput;
+        $residenceInput = trim((string)($_POST['residence_points'] ?? ''));
+        $residencePoints = $residenceInput === '' ? null : (float)$residenceInput;
+        $otherScreeningInput = trim((string)($_POST['other_screening_points'] ?? ''));
+        $otherScreeningPoints = $otherScreeningInput === '' ? null : (float)$otherScreeningInput;
+        $cctChoice = (string)($_POST['cct_choice'] ?? 'first');
+        $firstChoice = self::normalizeCourseChoice((string)($_POST['first_choice'] ?? ''));
+        $secondChoice = self::normalizeCourseChoice((string)($_POST['second_choice'] ?? ''));
+        $applicationStatus = (string)($_POST['application_status'] ?? 'new_student');
+        $screeningStatus = (string)($_POST['screening_status'] ?? 'pending');
         $status = (string)($_POST['status'] ?? 'pending');
+        $name = self::buildStudentName($lastName, $firstName, $middleName);
 
-        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            self::renderStudentFormMode('create', 'Please enter a valid name and email.', [
-                'name' => $name,
+        if ($firstName === '' || $lastName === '') {
+            self::renderStudentFormMode('create', 'Please enter the student first name and last name.', [
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'middle_name' => $middleName,
+                'application_number' => $applicationNumber,
                 'email' => $email,
-                'id_number' => $idNumber,
+                'city' => $city,
+                'province' => $province,
+                'shs_strand' => $shsStrand,
+                'gpa' => $gpaInput,
+                'physical_requirement_status' => $physicalRequirementStatus,
+                'honors_awards_points' => $honorsAwardsInput,
+                'residence_points' => $residenceInput,
+                'other_screening_points' => $otherScreeningInput,
+                'cct_choice' => $cctChoice,
+                'first_choice' => $firstChoice,
+                'second_choice' => $secondChoice,
+                'application_status' => $applicationStatus,
+                'screening_status' => $screeningStatus,
                 'status' => $status,
             ]);
             return;
         }
 
-        if (!in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+        if ($gpaInput !== '' && !is_numeric($gpaInput)) {
+            self::renderStudentFormMode('create', 'General average must be a valid number.', [
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'middle_name' => $middleName,
+                'application_number' => $applicationNumber,
+                'email' => $email,
+                'city' => $city,
+                'province' => $province,
+                'shs_strand' => $shsStrand,
+                'gpa' => $gpaInput,
+                'physical_requirement_status' => $physicalRequirementStatus,
+                'honors_awards_points' => $honorsAwardsInput,
+                'residence_points' => $residenceInput,
+                'other_screening_points' => $otherScreeningInput,
+                'cct_choice' => $cctChoice,
+                'first_choice' => $firstChoice,
+                'second_choice' => $secondChoice,
+                'application_status' => $applicationStatus,
+                'screening_status' => $screeningStatus,
+                'status' => $status,
+            ]);
+            return;
+        }
+
+        if (!in_array($status, ['pending', 'passed', 'failed'], true)) {
             $status = 'pending';
         }
-
-        if ($status === 'admitted' && $idNumber === '') {
-            self::renderStudentFormMode('create', 'ID number is required for admitted students.', [
-                'name' => $name,
-                'email' => $email,
-                'id_number' => $idNumber,
-                'status' => $status,
-            ]);
-            return;
+        if (!in_array($screeningStatus, ['pending', 'qualified', 'not_qualified'], true)) {
+            $screeningStatus = 'pending';
+        }
+        if (!in_array($applicationStatus, ['new_student', 'transferee', 'returning_student', 'adult_learner', 'old_curriculum', 'als_passer'], true)) {
+            $applicationStatus = 'new_student';
+        }
+        if (!in_array($physicalRequirementStatus, ['pending', 'met', 'not_met'], true)) {
+            $physicalRequirementStatus = 'pending';
+        }
+        if (!in_array($cctChoice, ['first', 'second', 'none'], true)) {
+            $cctChoice = 'first';
         }
 
         $activeSemester = self::getActiveSemester();
         if ($activeSemester === null) {
             self::renderStudentFormMode('create', 'Set an active semester first before creating students.', [
-                'name' => $name,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'middle_name' => $middleName,
+                'application_number' => $applicationNumber,
                 'email' => $email,
-                'id_number' => $idNumber,
+                'city' => $city,
+                'province' => $province,
+                'shs_strand' => $shsStrand,
+                'gpa' => $gpaInput,
+                'physical_requirement_status' => $physicalRequirementStatus,
+                'honors_awards_points' => $honorsAwardsInput,
+                'residence_points' => $residenceInput,
+                'other_screening_points' => $otherScreeningInput,
+                'cct_choice' => $cctChoice,
+                'first_choice' => $firstChoice,
+                'second_choice' => $secondChoice,
+                'application_status' => $applicationStatus,
+                'screening_status' => $screeningStatus,
                 'status' => $status,
             ]);
             return;
         }
 
         $pdo = Database::pdo();
-        $check = $pdo->prepare("SELECT id FROM students WHERE (email = :email OR id_number = :id_number) AND is_deleted = 0 LIMIT 1");
+        $check = $pdo->prepare("SELECT id
+                                FROM students
+                                WHERE is_deleted = 0
+                                  AND (
+                                        (:email IS NOT NULL AND email = :email)
+                                     OR (:application_number <> '' AND application_number = :application_number)
+                                  )
+                                LIMIT 1");
         $check->execute([
             ':email' => $email,
-            ':id_number' => $idNumber === '' ? null : $idNumber,
+            ':application_number' => $applicationNumber,
         ]);
         if ($check->fetch()) {
-            self::renderStudentFormMode('create', 'Email or ID number is already in use.', [
-                'name' => $name,
+            self::renderStudentFormMode('create', 'Email or application number is already in use.', [
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'middle_name' => $middleName,
+                'application_number' => $applicationNumber,
                 'email' => $email,
-                'id_number' => $idNumber,
+                'city' => $city,
+                'province' => $province,
+                'shs_strand' => $shsStrand,
+                'gpa' => $gpaInput,
+                'cct_choice' => $cctChoice,
+                'first_choice' => $firstChoice,
+                'second_choice' => $secondChoice,
+                'application_status' => $applicationStatus,
+                'screening_status' => $screeningStatus,
                 'status' => $status,
             ]);
             return;
         }
 
-        $pdo->prepare("INSERT INTO students (id_number, name, email, status, semester_id, created_by)
-                       VALUES (:id_number, :name, :email, :status, :semester_id, :created_by)")
-            ->execute([
-                ':id_number' => $idNumber === '' ? null : $idNumber,
+        $insertSql = "INSERT INTO students (
+                            application_number, name, first_name, last_name, middle_name,
+                            email, city, province, shs_strand, gpa, physical_requirement_status,
+                            honors_awards_points, residence_points, other_screening_points,"
+            . (self::hasCctChoiceColumn() ? " cct_choice," : "")
+            . " first_choice, second_choice,
+                            application_status, screening_status, status, semester_id, created_by
+                       ) VALUES (
+                            :application_number, :name, :first_name, :last_name, :middle_name,
+                            :email, :city, :province, :shs_strand, :gpa, :physical_requirement_status,
+                            :honors_awards_points, :residence_points, :other_screening_points,"
+            . (self::hasCctChoiceColumn() ? " :cct_choice," : "")
+            . " :first_choice, :second_choice,
+                            :application_status, :screening_status, :status, :semester_id, :created_by
+                       )";
+        $insertParams = [
+                ':application_number' => $applicationNumber === '' ? null : $applicationNumber,
                 ':name' => $name,
+                ':first_name' => $firstName,
+                ':last_name' => $lastName,
+                ':middle_name' => $middleName === '' ? null : $middleName,
                 ':email' => $email,
+                ':city' => $city === '' ? null : $city,
+                ':province' => $province === '' ? null : $province,
+                ':shs_strand' => $shsStrand === '' ? null : $shsStrand,
+                ':gpa' => $gpa,
+                ':physical_requirement_status' => $physicalRequirementStatus,
+                ':honors_awards_points' => $honorsAwardsPoints,
+                ':residence_points' => $residencePoints,
+                ':other_screening_points' => $otherScreeningPoints,
+                ':first_choice' => $firstChoice,
+                ':second_choice' => $secondChoice,
+                ':application_status' => $applicationStatus,
+                ':screening_status' => $screeningStatus,
                 ':status' => $status,
                 ':semester_id' => (int)$activeSemester['id'],
                 ':created_by' => (int)($_SESSION['user_id'] ?? 0),
-            ]);
+            ];
+        if (self::hasCctChoiceColumn()) {
+            $insertParams[':cct_choice'] = $cctChoice;
+        }
+        $pdo->prepare($insertSql)->execute($insertParams);
 
         Logger::log(currentUserId(), 'CREATE_STUDENT', 'students', (int)$pdo->lastInsertId(), 'Created student record');
         flash('success', 'Student created.');
@@ -674,7 +1014,10 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status, semester_id FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, first_name, last_name, middle_name, email, city, province, shs_strand, gpa, physical_requirement_status, honors_awards_points, residence_points, other_screening_points,"
+            . (self::hasCctChoiceColumn() ? " cct_choice," : " 'first' AS cct_choice,")
+            . " first_choice, second_choice, application_status, screening_status, status, semester_id
+            FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -690,6 +1033,8 @@ final class AdmissionController
             'action' => '/admission/students/edit',
             'student' => $student,
             'activeSemester' => self::getActiveSemester(),
+            'courseOptions' => self::studentCourseOptions(),
+            'courseSummaries' => ScoresService::hasScores($id) ? RecommendationService::getCourseEvaluationsForStudent($id) : [],
             'error' => null,
         ]);
     }
@@ -700,35 +1045,94 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_POST['id'] ?? 0);
-        $name = trim((string)($_POST['name'] ?? ''));
-        $email = trim((string)($_POST['email'] ?? ''));
-        $idNumber = trim((string)($_POST['id_number'] ?? ''));
+        $lastName = trim((string)($_POST['last_name'] ?? ''));
+        $firstName = trim((string)($_POST['first_name'] ?? ''));
+        $middleName = trim((string)($_POST['middle_name'] ?? ''));
+        $applicationNumber = trim((string)($_POST['application_number'] ?? ''));
+        $rawEmail = (string)($_POST['email'] ?? '');
+        $email = self::normalizeStudentEmail($rawEmail);
+        $city = trim((string)($_POST['city'] ?? ''));
+        $province = trim((string)($_POST['province'] ?? ''));
+        $shsStrand = trim((string)($_POST['shs_strand'] ?? ''));
+        $gpaInput = trim((string)($_POST['gpa'] ?? ''));
+        $gpa = $gpaInput === '' ? null : (float)$gpaInput;
+        $physicalRequirementStatus = (string)($_POST['physical_requirement_status'] ?? 'pending');
+        $honorsAwardsInput = trim((string)($_POST['honors_awards_points'] ?? ''));
+        $honorsAwardsPoints = $honorsAwardsInput === '' ? null : (float)$honorsAwardsInput;
+        $residenceInput = trim((string)($_POST['residence_points'] ?? ''));
+        $residencePoints = $residenceInput === '' ? null : (float)$residenceInput;
+        $otherScreeningInput = trim((string)($_POST['other_screening_points'] ?? ''));
+        $otherScreeningPoints = $otherScreeningInput === '' ? null : (float)$otherScreeningInput;
+        $cctChoice = (string)($_POST['cct_choice'] ?? 'first');
+        $firstChoice = self::normalizeCourseChoice((string)($_POST['first_choice'] ?? ''));
+        $secondChoice = self::normalizeCourseChoice((string)($_POST['second_choice'] ?? ''));
+        $applicationStatus = (string)($_POST['application_status'] ?? 'new_student');
+        $screeningStatus = (string)($_POST['screening_status'] ?? 'pending');
         $status = (string)($_POST['status'] ?? 'pending');
+        $name = self::buildStudentName($lastName, $firstName, $middleName);
 
-        if ($name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            self::renderStudentFormMode('edit', 'Please enter a valid name and email.', [
+        if ($firstName === '' || $lastName === '') {
+            self::renderStudentFormMode('edit', 'Please enter the student first name and last name.', [
                 'id' => $id,
-                'name' => $name,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'middle_name' => $middleName,
+                'application_number' => $applicationNumber,
                 'email' => $email,
-                'id_number' => $idNumber,
+                'city' => $city,
+                'province' => $province,
+                'shs_strand' => $shsStrand,
+                'gpa' => $gpaInput,
+                'physical_requirement_status' => $physicalRequirementStatus,
+                'honors_awards_points' => $honorsAwardsInput,
+                'residence_points' => $residenceInput,
+                'other_screening_points' => $otherScreeningInput,
+                'cct_choice' => $cctChoice,
+                'first_choice' => $firstChoice,
+                'second_choice' => $secondChoice,
+                'application_status' => $applicationStatus,
+                'screening_status' => $screeningStatus,
                 'status' => $status,
             ]);
             return;
         }
 
-        if (!in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+        if ($gpaInput !== '' && !is_numeric($gpaInput)) {
+            self::renderStudentFormMode('edit', 'General average must be a valid number.', [
+                'id' => $id,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'middle_name' => $middleName,
+                'application_number' => $applicationNumber,
+                'email' => $email,
+                'city' => $city,
+                'province' => $province,
+                'shs_strand' => $shsStrand,
+                'gpa' => $gpaInput,
+                'cct_choice' => $cctChoice,
+                'first_choice' => $firstChoice,
+                'second_choice' => $secondChoice,
+                'application_status' => $applicationStatus,
+                'screening_status' => $screeningStatus,
+                'status' => $status,
+            ]);
+            return;
+        }
+
+        if (!in_array($status, ['pending', 'passed', 'failed'], true)) {
             $status = 'pending';
         }
-
-        if ($status === 'admitted' && $idNumber === '') {
-            self::renderStudentFormMode('edit', 'ID number is required for admitted students.', [
-                'id' => $id,
-                'name' => $name,
-                'email' => $email,
-                'id_number' => $idNumber,
-                'status' => $status,
-            ]);
-            return;
+        if (!in_array($screeningStatus, ['pending', 'qualified', 'not_qualified'], true)) {
+            $screeningStatus = 'pending';
+        }
+        if (!in_array($applicationStatus, ['new_student', 'transferee', 'returning_student', 'adult_learner', 'old_curriculum', 'als_passer'], true)) {
+            $applicationStatus = 'new_student';
+        }
+        if (!in_array($physicalRequirementStatus, ['pending', 'met', 'not_met'], true)) {
+            $physicalRequirementStatus = 'pending';
+        }
+        if (!in_array($cctChoice, ['first', 'second', 'none'], true)) {
+            $cctChoice = 'first';
         }
 
         $pdo = Database::pdo();
@@ -747,9 +1151,24 @@ final class AdmissionController
             if ($activeSemester === null) {
                 self::renderStudentFormMode('edit', 'Set an active semester first before saving this student.', [
                     'id' => $id,
-                    'name' => $name,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'middle_name' => $middleName,
+                    'application_number' => $applicationNumber,
                     'email' => $email,
-                    'id_number' => $idNumber,
+                    'city' => $city,
+                    'province' => $province,
+                    'shs_strand' => $shsStrand,
+                    'gpa' => $gpaInput,
+                    'physical_requirement_status' => $physicalRequirementStatus,
+                    'honors_awards_points' => $honorsAwardsInput,
+                    'residence_points' => $residenceInput,
+                    'other_screening_points' => $otherScreeningInput,
+                    'cct_choice' => $cctChoice,
+                    'first_choice' => $firstChoice,
+                    'second_choice' => $secondChoice,
+                    'application_status' => $applicationStatus,
+                    'screening_status' => $screeningStatus,
                     'status' => $status,
                 ]);
                 return;
@@ -757,40 +1176,104 @@ final class AdmissionController
             $semesterId = (int)$activeSemester['id'];
         }
 
-        $check = $pdo->prepare("SELECT id FROM students WHERE (email = :email OR id_number = :id_number) AND id <> :id AND is_deleted = 0 LIMIT 1");
+        $check = $pdo->prepare("SELECT id
+                                FROM students
+                                WHERE id <> :id
+                                  AND is_deleted = 0
+                                  AND (
+                                        (:email_check IS NOT NULL AND email = :email_match)
+                                     OR (:application_number_check <> '' AND application_number = :application_number_match)
+                                  )
+                                LIMIT 1");
         $check->execute([
-            ':email' => $email,
-            ':id_number' => $idNumber === '' ? null : $idNumber,
+            ':email_check' => $email,
+            ':email_match' => $email,
+            ':application_number_check' => $applicationNumber,
+            ':application_number_match' => $applicationNumber,
             ':id' => $id,
         ]);
         if ($check->fetch()) {
-            self::renderStudentFormMode('edit', 'Email or ID number is already in use.', [
+            self::renderStudentFormMode('edit', 'Email or application number is already in use.', [
                 'id' => $id,
-                'name' => $name,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'middle_name' => $middleName,
+                'application_number' => $applicationNumber,
                 'email' => $email,
-                'id_number' => $idNumber,
+                'city' => $city,
+                'province' => $province,
+                'shs_strand' => $shsStrand,
+                'gpa' => $gpaInput,
+                'physical_requirement_status' => $physicalRequirementStatus,
+                'honors_awards_points' => $honorsAwardsInput,
+                'residence_points' => $residenceInput,
+                'other_screening_points' => $otherScreeningInput,
+                'cct_choice' => $cctChoice,
+                'first_choice' => $firstChoice,
+                'second_choice' => $secondChoice,
+                'application_status' => $applicationStatus,
+                'screening_status' => $screeningStatus,
                 'status' => $status,
             ]);
             return;
         }
 
-        $pdo->prepare("UPDATE students
-                       SET id_number = :id_number,
+        $updateSql = "UPDATE students
+                       SET application_number = :application_number,
                            name = :name,
+                           first_name = :first_name,
+                           last_name = :last_name,
+                           middle_name = :middle_name,
                            email = :email,
+                           city = :city,
+                           province = :province,
+                           shs_strand = :shs_strand,
+                           gpa = :gpa,
+                           physical_requirement_status = :physical_requirement_status,
+                           honors_awards_points = :honors_awards_points,
+                           residence_points = :residence_points,
+                           other_screening_points = :other_screening_points,
+                           " . (self::hasCctChoiceColumn() ? "cct_choice = :cct_choice," : "") . "
+                           first_choice = :first_choice,
+                           second_choice = :second_choice,
+                           application_status = :application_status,
+                           screening_status = :screening_status,
                            status = :status,
                            semester_id = :semester_id,
                            updated_by = :updated_by
-                       WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0")
-            ->execute([
-                ':id_number' => $idNumber === '' ? null : $idNumber,
+                       WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0";
+        $updateParams = [
+                ':application_number' => $applicationNumber === '' ? null : $applicationNumber,
                 ':name' => $name,
+                ':first_name' => $firstName,
+                ':last_name' => $lastName,
+                ':middle_name' => $middleName === '' ? null : $middleName,
                 ':email' => $email,
+                ':city' => $city === '' ? null : $city,
+                ':province' => $province === '' ? null : $province,
+                ':shs_strand' => $shsStrand === '' ? null : $shsStrand,
+                ':gpa' => $gpa,
+                ':physical_requirement_status' => $physicalRequirementStatus,
+                ':honors_awards_points' => $honorsAwardsPoints,
+                ':residence_points' => $residencePoints,
+                ':other_screening_points' => $otherScreeningPoints,
+                ':first_choice' => $firstChoice,
+                ':second_choice' => $secondChoice,
+                ':application_status' => $applicationStatus,
+                ':screening_status' => $screeningStatus,
                 ':status' => $status,
                 ':semester_id' => $semesterId,
                 ':updated_by' => (int)($_SESSION['user_id'] ?? 0),
                 ':id' => $id,
-            ]);
+            ];
+        if (self::hasCctChoiceColumn()) {
+            $updateParams[':cct_choice'] = $cctChoice;
+        }
+        $pdo->prepare($updateSql)->execute($updateParams);
+
+        if (ScoresService::hasScores($id)) {
+            RecommendationService::syncStudentOutcome($id);
+        }
 
         Logger::log(currentUserId(), 'UPDATE_STUDENT', 'students', $id, 'Admission updated student record');
         flash('success', 'Student updated.');
@@ -886,11 +1369,11 @@ final class AdmissionController
             $where .= " AND (
                 l.details LIKE :q_details OR
                 s.name LIKE :q_student_name OR
-                s.id_number LIKE :q_student_id_number OR
+                s.application_number LIKE :q_student_application_number OR
                 eu.name LIKE :q_entity_user_name OR
                 eu.email LIKE :q_entity_user_email OR
                 ses_student.name LIKE :q_score_student_name OR
-                ses_student.id_number LIKE :q_score_student_id_number OR
+                ses_student.application_number LIKE :q_score_student_application_number OR
                 ses_part.name LIKE :q_score_part_name OR
                 wc.course_name LIKE :q_weight_course_name OR
                 wc.course_code LIKE :q_weight_course_code OR
@@ -899,11 +1382,11 @@ final class AdmissionController
             $like = '%' . $q . '%';
             $params[':q_details'] = $like;
             $params[':q_student_name'] = $like;
-            $params[':q_student_id_number'] = $like;
+            $params[':q_student_application_number'] = $like;
             $params[':q_entity_user_name'] = $like;
             $params[':q_entity_user_email'] = $like;
             $params[':q_score_student_name'] = $like;
-            $params[':q_score_student_id_number'] = $like;
+            $params[':q_score_student_application_number'] = $like;
             $params[':q_score_part_name'] = $like;
             $params[':q_weight_course_name'] = $like;
             $params[':q_weight_course_code'] = $like;
@@ -961,7 +1444,7 @@ final class AdmissionController
                        CASE
                            WHEN l.entity = 'student_exam_scores'
                                THEN CONCAT(
-                                   COALESCE(ses_student.id_number, 'No ID'),
+                                   COALESCE(ses_student.application_number, 'No Application Number'),
                                    ' / ',
                                    COALESCE(ses_part.name, 'Exam Part')
                                )
@@ -972,7 +1455,7 @@ final class AdmissionController
                                    ' / ',
                                    COALESCE(wep.name, 'Exam Part')
                                )
-                           ELSE COALESCE(s.id_number, eu.email)
+                           ELSE COALESCE(s.application_number, eu.email)
                        END AS entity_ref
                 FROM logs l
                 LEFT JOIN users u ON u.id = l.user_id
@@ -1455,104 +1938,17 @@ final class AdmissionController
 
     private static function getRecommendationsForStudents(array $studentIds, int $limit): array
     {
-        if (empty($studentIds)) {
-            return [];
-        }
-
-        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
-        $recSql = "WITH ranked AS (
-                      SELECT
-                          ses.student_id,
-                          c.course_code,
-                          c.course_name,
-                          SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
-                          ROW_NUMBER() OVER (
-                              PARTITION BY ses.student_id
-                              ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
-                          ) AS rn
-                      FROM student_exam_scores ses
-                      INNER JOIN exam_parts ep
-                          ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
-                      INNER JOIN weights w
-                          ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
-                      INNER JOIN courses c
-                          ON c.id = w.course_id AND c.is_deleted = 0
-                      WHERE ses.is_deleted = 0
-                        AND ses.student_id IN ($placeholders)
-                      GROUP BY ses.student_id, c.id
-                    )
-                    SELECT student_id, course_code, course_name, total_score, rn
-                    FROM ranked
-                    WHERE rn <= ?
-                    ORDER BY student_id, rn";
-
-        $recSt = Database::pdo()->prepare($recSql);
-        $recSt->execute(array_merge($studentIds, [$limit]));
-        $recRows = $recSt->fetchAll();
-
-        $recommendations = [];
-        foreach ($recRows as $row) {
-            $sid = (int)$row['student_id'];
-            if (!isset($recommendations[$sid])) {
-                $recommendations[$sid] = [];
-            }
-            $recommendations[$sid][] = [
-                'course_code' => (string)$row['course_code'],
-                'course_name' => (string)$row['course_name'],
-                'total_score' => (float)$row['total_score'],
-                'rank' => (int)$row['rn'],
-            ];
-        }
-
-        return $recommendations;
+        return RecommendationService::getQualifiedRecommendationsForStudents($studentIds, $limit);
     }
 
     private static function getTopRecommendationsForStudent(int $studentId, int $limit): array
     {
-        return array_slice(self::getCourseRecommendationsForStudent($studentId), 0, $limit);
+        return RecommendationService::getQualifiedRecommendationsForStudent($studentId, $limit);
     }
 
     private static function getCourseRecommendationsForStudent(int $studentId): array
     {
-        $sql = "WITH ranked AS (
-                  SELECT
-                      c.course_code,
-                      c.course_name,
-                      SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
-                      ROW_NUMBER() OVER (
-                          ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
-                      ) AS rn
-                  FROM student_exam_scores ses
-                  INNER JOIN exam_parts ep
-                      ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
-                  INNER JOIN weights w
-                      ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
-                  INNER JOIN courses c
-                      ON c.id = w.course_id AND c.is_deleted = 0
-                  WHERE ses.is_deleted = 0
-                    AND ses.student_id = :student_id
-                  GROUP BY c.id
-                )
-                SELECT course_code, course_name, total_score, rn
-                FROM ranked
-                ORDER BY rn";
-
-        $st = Database::pdo()->prepare($sql);
-        $st->bindValue(':student_id', $studentId, PDO::PARAM_INT);
-        $st->execute();
-
-        $rows = $st->fetchAll();
-        $recommendations = [];
-        foreach ($rows as $row) {
-            $recommendations[] = [
-                'course_code' => (string)$row['course_code'],
-                'course_name' => (string)$row['course_name'],
-                'total_score' => (float)$row['total_score'],
-                'rank' => (int)$row['rn'],
-            ];
-        }
-
-        return $recommendations;
+        return RecommendationService::getCourseEvaluationsForStudent($studentId);
     }
 
     private static function getPrintableReportData(string $reportType, string $startDate, string $endDate): array
@@ -1576,7 +1972,7 @@ final class AdmissionController
             $where .= $addDateFilter('s.created_at', $params);
 
             $st = Database::pdo()->prepare(
-                "SELECT s.id_number,
+                "SELECT s.application_number,
                         s.name,
                         s.email,
                         s.status,
@@ -1601,7 +1997,7 @@ final class AdmissionController
             $params = [];
             $dateFilter = $addDateFilter('ses.created_at', $params);
             $st = Database::pdo()->prepare(
-                "SELECT s.id_number,
+                "SELECT s.application_number,
                         s.name,
                         s.status,
                         ROUND(SUM(ses.score), 2) AS total_exam_score,
@@ -1626,7 +2022,7 @@ final class AdmissionController
             "WITH ranked AS (
                 SELECT
                     s.id,
-                    s.id_number,
+                    s.application_number,
                     s.name,
                     sy.name AS school_year_name,
                     sem.name AS semester_name,
@@ -1659,7 +2055,7 @@ final class AdmissionController
                   {$dateFilter}
                 GROUP BY s.id, c.id
             )
-            SELECT id_number,
+            SELECT application_number,
                    name,
                    school_year_name,
                    semester_name,
@@ -1689,8 +2085,558 @@ final class AdmissionController
             'action' => $mode === 'create' ? '/admission/students/create' : '/admission/students/edit',
             'student' => $student,
             'activeSemester' => self::getActiveSemester(),
+            'courseOptions' => self::studentCourseOptions(),
+            'courseSummaries' => !empty($student['id']) && ScoresService::hasScores((int)$student['id'])
+                ? RecommendationService::getCourseEvaluationsForStudent((int)$student['id'])
+                : [],
             'error' => $error,
         ]);
+    }
+
+    private static function studentCourseOptions(): array
+    {
+        $courses = WeightsService::getAllCourses();
+        return array_map(static function (array $course): array {
+            return [
+                'id' => (int)$course['id'],
+                'code' => (string)$course['course_code'],
+                'label' => (string)$course['course_code'] . ': ' . (string)($course['course_category'] ?? '') . ' - ' . (string)$course['course_name'],
+            ];
+        }, $courses);
+    }
+
+    private static function normalizeCourseChoice(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (self::studentCourseOptions() as $courseOption) {
+            if ($value === (string)$courseOption['id'] || strcasecmp($value, (string)$courseOption['code']) === 0) {
+                return (string)$courseOption['id'];
+            }
+        }
+
+        return null;
+    }
+
+    private static function resolveCourseChoiceLabel(?string $value): string
+    {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return 'Not selected';
+        }
+
+        foreach (WeightsService::getAllCourses() as $course) {
+            if ($value === (string)$course['id'] || strcasecmp($value, (string)$course['course_code']) === 0) {
+                return (string)$course['course_code'] . ' - ' . (string)$course['course_name'];
+            }
+        }
+
+        return $value;
+    }
+
+    private static function decorateStudentChoiceLabels(array $student): array
+    {
+        $student['first_choice_label'] = self::resolveCourseChoiceLabel((string)($student['first_choice'] ?? ''));
+        $student['second_choice_label'] = self::resolveCourseChoiceLabel((string)($student['second_choice'] ?? ''));
+        return $student;
+    }
+
+    private static function parseBulkUploadFile(string $filePath, string $extension): array
+    {
+        return $extension === 'xlsx'
+            ? self::parseBulkUploadXlsx($filePath)
+            : self::parseBulkUploadCsv($filePath);
+    }
+
+    private static function parseBulkUploadCsv(string $filePath): array
+    {
+        $handle = fopen($filePath, 'rb');
+        if ($handle === false) {
+            throw new RuntimeException('Unable to open uploaded CSV file.');
+        }
+
+        $rows = [];
+        while (($row = fgetcsv($handle)) !== false) {
+            $rows[] = array_map(static fn($value): string => trim((string)$value), $row);
+        }
+        fclose($handle);
+
+        return $rows;
+    }
+
+    private static function parseBulkUploadXlsx(string $filePath): array
+    {
+        if (!class_exists('ZipArchive')) {
+            throw new RuntimeException('XLSX upload is not supported on this server. Please upload the CSV version instead.');
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($filePath) !== true) {
+            throw new RuntimeException('Unable to open uploaded XLSX file.');
+        }
+
+        $sharedStrings = [];
+        $sharedStringsXml = $zip->getFromName('xl/sharedStrings.xml');
+        if ($sharedStringsXml !== false) {
+            $xml = simplexml_load_string($sharedStringsXml);
+            if ($xml !== false && isset($xml->si)) {
+                foreach ($xml->si as $item) {
+                    if (isset($item->t)) {
+                        $sharedStrings[] = (string)$item->t;
+                        continue;
+                    }
+
+                    $text = '';
+                    foreach ($item->r as $run) {
+                        $text .= (string)$run->t;
+                    }
+                    $sharedStrings[] = $text;
+                }
+            }
+        }
+
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        if ($sheetXml === false) {
+            throw new RuntimeException('Uploaded XLSX file does not contain a readable first worksheet.');
+        }
+
+        $sheet = simplexml_load_string($sheetXml);
+        if ($sheet === false || !isset($sheet->sheetData->row)) {
+            throw new RuntimeException('Uploaded XLSX file is empty or invalid.');
+        }
+
+        $rows = [];
+        foreach ($sheet->sheetData->row as $row) {
+            $rowValues = [];
+            foreach ($row->c as $cell) {
+                $cellRef = (string)($cell['r'] ?? '');
+                $columnLetters = preg_replace('/\d+/', '', $cellRef);
+                $columnIndex = self::xlsxColumnLettersToIndex($columnLetters);
+                while (count($rowValues) < $columnIndex) {
+                    $rowValues[] = '';
+                }
+
+                $rawValue = isset($cell->v) ? (string)$cell->v : '';
+                $type = (string)($cell['t'] ?? '');
+                if ($type === 's') {
+                    $value = $sharedStrings[(int)$rawValue] ?? '';
+                } else {
+                    $value = $rawValue;
+                }
+                $rowValues[$columnIndex] = trim($value);
+            }
+            $rows[] = $rowValues;
+        }
+
+        return $rows;
+    }
+
+    private static function xlsxColumnLettersToIndex(string $letters): int
+    {
+        $letters = strtoupper($letters);
+        $index = 0;
+        for ($i = 0, $length = strlen($letters); $i < $length; $i++) {
+            $index = ($index * 26) + (ord($letters[$i]) - 64);
+        }
+
+        return max(0, $index - 1);
+    }
+
+    private static function locateBulkUploadHeader(array $rows): array
+    {
+        foreach ($rows as $index => $row) {
+            $normalized = array_map(static fn($value): string => trim((string)$value), $row);
+            if (in_array('Application Number', $normalized, true) && in_array('Last Name', $normalized, true)) {
+                $headers = [];
+                foreach ($normalized as $columnIndex => $header) {
+                    if ($header !== '') {
+                        $headers[$header] = $columnIndex;
+                    }
+                }
+
+                return [$index, $headers];
+            }
+        }
+
+        throw new RuntimeException('Could not find the header row in the uploaded file.');
+    }
+
+    private static function normalizeBulkUploadRecords(array $rows, int $headerIndex, array $headers): array
+    {
+        $records = [];
+        for ($i = $headerIndex + 1, $count = count($rows); $i < $count; $i++) {
+            $row = $rows[$i];
+            $record = [];
+            foreach ($headers as $header => $columnIndex) {
+                $record[$header] = trim((string)($row[$columnIndex] ?? ''));
+            }
+            $records[] = $record;
+        }
+
+        return $records;
+    }
+
+    private static function requiredBulkUploadColumns(): array
+    {
+        return [
+            'Last Name',
+            'First Name',
+            'Application Number',
+        ];
+    }
+
+    private static function buildBulkExamPartHeaderMap(array $parts, array $headers): array
+    {
+        $aliases = [
+            'English' => ['C-CAT 001 - English'],
+            'Filipino' => ['C-CAT 002 - Filipino'],
+            'Humanities' => ['C-CAT 003 - Humanities'],
+            'Literature' => ['C-CAT 004 - Literature'],
+            'Math' => ['C-CAT 005 - Mathematics'],
+            'Science' => ['C-CAT 006 - Science'],
+            'Studies' => ['C-CAT 007 - Social Studies'],
+            'Non-Verbal Reasoning / Spatial' => ['C-CAT 008 - Spatial'],
+            'Verbal Aptitude' => ['C-CAT 009 - Verbal'],
+            'Inter-Personal Aptitude' => ['C-CAT 010 - Interpersonal'],
+            'Environmental Aptitude' => ['C-CAT 011 - Environmental'],
+            'Customer Service' => ['C-CAT 012 - Customer Relations'],
+            'Teaching Aptitude' => ['C-CAT 013 - Teaching'],
+            'Entrepreneurial' => ['C-CAT 014 -Entrepreneurial', 'C-CAT 014 - Entrepreneurial'],
+            'Clerical' => ['C-CAT 015 - Clerical.'],
+            'Coding' => ['C-CAT 016 - Coding'],
+            'Speed & Accuracy' => ['C-CAT 017 - Speed and Accuracy'],
+            'Realistic' => ['C-CAT 018 - Realistic'],
+            'Investigative' => ['C-CAT 019 - Investigative'],
+            'Artistic' => ['C-CAT 020 - Artistic'],
+            'Social' => ['C-CAT 021 - Social'],
+            'Enterprising' => ['C-CAT 022 - Enterprising'],
+            'Conventional' => ['C-CAT 023 - Conventional'],
+            'Openness' => ['C-CAT 024 - Openness'],
+            'Conscientiousness' => ['C-CAT 025 - Conscientiousness'],
+            'Extraversion' => ['C-CAT 026 - Extraversion'],
+            'Agreeableness' => ['C-CAT 027 - Agreeableness'],
+            'Neuroticism' => ['C-CAT 028 - Neuroticism'],
+        ];
+
+        $partMap = [];
+        $missing = [];
+        foreach ($parts as $part) {
+            $partName = (string)$part['name'];
+            $headerOptions = $aliases[$partName] ?? [$partName];
+            $matchedHeader = null;
+            foreach ($headerOptions as $headerName) {
+                if (array_key_exists($headerName, $headers)) {
+                    $matchedHeader = $headerName;
+                    break;
+                }
+            }
+
+            if ($matchedHeader === null) {
+                $missing[] = $partName;
+                continue;
+            }
+
+            $partMap[(int)$part['id']] = [
+                'name' => $partName,
+                'header' => $matchedHeader,
+                'max_score' => (float)$part['max_score'],
+            ];
+        }
+
+        if (!empty($missing)) {
+            throw new RuntimeException('The uploaded file is missing score columns for: ' . implode(', ', $missing));
+        }
+
+        return $partMap;
+    }
+
+    private static function isBulkRecordEmpty(array $record): bool
+    {
+        foreach ($record as $value) {
+            if (trim((string)$value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function mapBulkStudentRecord(array $record): array
+    {
+        return [
+            'application_number' => self::nullableString($record['Application Number'] ?? ''),
+            'first_name' => trim((string)($record['First Name'] ?? '')),
+            'last_name' => trim((string)($record['Last Name'] ?? '')),
+            'middle_name' => self::nullableString($record['Middle Name'] ?? ''),
+            'email' => null,
+            'city' => self::nullableString($record['City'] ?? ''),
+            'province' => self::nullableString($record['Province'] ?? ''),
+            'shs_strand' => self::nullableString($record['SHS Strand'] ?? ''),
+            'gpa' => is_numeric(trim((string)($record['GPA'] ?? ''))) ? (float)$record['GPA'] : null,
+            'physical_requirement_status' => self::mapBulkPhysicalRequirement((string)($record['Physical Requirement'] ?? '')),
+            'honors_awards_points' => is_numeric(trim((string)($record['Honors Awards'] ?? ''))) ? (float)$record['Honors Awards'] : null,
+            'residence_points' => is_numeric(trim((string)($record['Residence'] ?? ''))) ? (float)$record['Residence'] : null,
+            'other_screening_points' => is_numeric(trim((string)($record['Others'] ?? ''))) ? (float)$record['Others'] : null,
+            'cct_choice' => self::mapBulkCctChoice((string)($record['CCT Choice'] ?? '')),
+            'first_choice' => self::normalizeCourseChoice((string)($record['1st Choice'] ?? '')),
+            'second_choice' => self::normalizeCourseChoice((string)($record['2nd Choice'] ?? '')),
+            'application_status' => 'new_student',
+            'screening_status' => 'pending',
+        ];
+    }
+
+    private static function nullableString(string $value): ?string
+    {
+        $value = trim($value);
+        return $value === '' ? null : $value;
+    }
+
+    private static function mapBulkApplicationStatus(string $status): string
+    {
+        $normalized = strtoupper(str_replace(['-', '_'], ' ', trim($status)));
+        return match ($normalized) {
+            'TRANSFEREE' => 'transferee',
+            'RETURNING STUDENT' => 'returning_student',
+            'ADULT LEARNER' => 'adult_learner',
+            'OLD CURRICULUM' => 'old_curriculum',
+            'ALS PASSER' => 'als_passer',
+            default => 'new_student',
+        };
+    }
+
+    private static function mapBulkExamResult(string $examResult, string $legacyStatus): string
+    {
+        $normalized = strtoupper(str_replace(['-', '_'], ' ', trim($examResult !== '' ? $examResult : $legacyStatus)));
+        return match ($normalized) {
+            'PASSED', 'QUALIFIED', 'ADMITTED', 'WAITLISTED' => 'passed',
+            'FAILED', 'REJECTED', 'DISQUALIFIED' => 'failed',
+            default => 'pending',
+        };
+    }
+
+    private static function mapBulkScreeningStatus(string $screeningStatus, string $legacyStatus): string
+    {
+        $normalized = strtoupper(str_replace(['-', '_'], ' ', trim($screeningStatus !== '' ? $screeningStatus : $legacyStatus)));
+        return match ($normalized) {
+            'QUALIFIED', 'ADMITTED', 'WAITLISTED' => 'qualified',
+            'NOT QUALIFIED', 'DISQUALIFIED', 'REJECTED' => 'not_qualified',
+            default => 'pending',
+        };
+    }
+
+    private static function mapBulkPhysicalRequirement(string $value): string
+    {
+        $normalized = strtoupper(str_replace(['-', '_'], ' ', trim($value)));
+        return match ($normalized) {
+            'MET', 'PASSED', 'YES', 'COMPLETE' => 'met',
+            'NOT MET', 'FAILED', 'NO', 'INCOMPLETE' => 'not_met',
+            default => 'pending',
+        };
+    }
+
+    private static function mapBulkCctChoice(string $value): string
+    {
+        $normalized = strtoupper(str_replace(['-', '_'], ' ', trim($value)));
+        return match ($normalized) {
+            '1', 'FIRST', '1ST', 'FIRST CHOICE', '1ST CHOICE' => 'first',
+            '2', 'SECOND', '2ND', 'SECOND CHOICE', '2ND CHOICE' => 'second',
+            'NONE', 'NOT SELECTED', 'N/A' => 'none',
+            default => 'first',
+        };
+    }
+
+    private static function upsertBulkStudentRecord(PDO $pdo, array $student, int $userId): array
+    {
+        $find = $pdo->prepare("
+            SELECT id
+            FROM students
+            WHERE is_deleted = 0
+              AND (
+                    (:application_number_check IS NOT NULL AND application_number = :application_number_match)
+              )
+            LIMIT 1
+        ");
+        $find->execute([
+            ':application_number_check' => $student['application_number'],
+            ':application_number_match' => $student['application_number'],
+        ]);
+        $existingId = (int)($find->fetchColumn() ?: 0);
+
+        if ($existingId > 0) {
+            $updateSql = "
+                UPDATE students
+                SET application_number = :application_number,
+                    name = :name,
+                    first_name = :first_name,
+                    last_name = :last_name,
+                    middle_name = :middle_name,
+                    email = :email,
+                    city = :city,
+                    province = :province,
+                    shs_strand = :shs_strand,
+                    gpa = :gpa,
+                    physical_requirement_status = :physical_requirement_status,
+                    honors_awards_points = :honors_awards_points,
+                    residence_points = :residence_points,
+                    other_screening_points = :other_screening_points,
+                    " . (self::hasCctChoiceColumn() ? "cct_choice = :cct_choice," : "") . "
+                    first_choice = :first_choice,
+                    second_choice = :second_choice,
+                    application_status = :application_status,
+                    screening_status = :screening_status,
+                    status = :status,
+                    semester_id = :semester_id,
+                    is_archived = 0,
+                    updated_by = :updated_by
+                WHERE id = :id AND is_deleted = 0
+            ";
+            $updateParams = [
+                ':application_number' => $student['application_number'],
+                ':name' => $student['name'],
+                ':first_name' => $student['first_name'],
+                ':last_name' => $student['last_name'],
+                ':middle_name' => $student['middle_name'],
+                ':email' => $student['email'],
+                ':city' => $student['city'],
+                ':province' => $student['province'],
+                ':shs_strand' => $student['shs_strand'],
+                ':gpa' => $student['gpa'],
+                ':physical_requirement_status' => $student['physical_requirement_status'],
+                ':honors_awards_points' => $student['honors_awards_points'],
+                ':residence_points' => $student['residence_points'],
+                ':other_screening_points' => $student['other_screening_points'],
+                ':first_choice' => $student['first_choice'],
+                ':second_choice' => $student['second_choice'],
+                ':application_status' => $student['application_status'],
+                ':screening_status' => $student['screening_status'],
+                ':status' => $student['status'],
+                ':semester_id' => $student['semester_id'],
+                ':updated_by' => $userId,
+                ':id' => $existingId,
+            ];
+            if (self::hasCctChoiceColumn()) {
+                $updateParams[':cct_choice'] = $student['cct_choice'];
+            }
+            $pdo->prepare($updateSql)->execute($updateParams);
+
+            return ['id' => $existingId, 'created' => false];
+        }
+
+        $insertSql = "
+            INSERT INTO students (
+                application_number, name, first_name, last_name, middle_name,
+                email, city, province, shs_strand, gpa, physical_requirement_status,
+                honors_awards_points, residence_points, other_screening_points,"
+                . (self::hasCctChoiceColumn() ? " cct_choice," : "") . "
+                first_choice, second_choice,
+                application_status, screening_status, status, semester_id, created_by
+            ) VALUES (
+                :application_number, :name, :first_name, :last_name, :middle_name,
+                :email, :city, :province, :shs_strand, :gpa, :physical_requirement_status,
+                :honors_awards_points, :residence_points, :other_screening_points,"
+                . (self::hasCctChoiceColumn() ? " :cct_choice," : "") . "
+                :first_choice, :second_choice,
+                :application_status, :screening_status, :status, :semester_id, :created_by
+            )
+        ";
+        $insertParams = [
+            ':application_number' => $student['application_number'],
+            ':name' => $student['name'],
+            ':first_name' => $student['first_name'],
+            ':last_name' => $student['last_name'],
+            ':middle_name' => $student['middle_name'],
+            ':email' => $student['email'],
+            ':city' => $student['city'],
+            ':province' => $student['province'],
+            ':shs_strand' => $student['shs_strand'],
+            ':gpa' => $student['gpa'],
+            ':physical_requirement_status' => $student['physical_requirement_status'],
+            ':honors_awards_points' => $student['honors_awards_points'],
+            ':residence_points' => $student['residence_points'],
+            ':other_screening_points' => $student['other_screening_points'],
+            ':first_choice' => $student['first_choice'],
+            ':second_choice' => $student['second_choice'],
+            ':application_status' => $student['application_status'],
+            ':screening_status' => $student['screening_status'],
+            ':status' => $student['status'],
+            ':semester_id' => $student['semester_id'],
+            ':created_by' => $userId,
+        ];
+        if (self::hasCctChoiceColumn()) {
+            $insertParams[':cct_choice'] = $student['cct_choice'];
+        }
+        $pdo->prepare($insertSql)->execute($insertParams);
+
+        return ['id' => (int)$pdo->lastInsertId(), 'created' => true];
+    }
+
+    private static function mapBulkScoresRecord(array $record, array $partMap, int $rowNumber): array
+    {
+        $scores = [];
+        foreach ($partMap as $partId => $part) {
+            $raw = trim((string)($record[$part['header']] ?? ''));
+            if ($raw === '' || !is_numeric($raw)) {
+                throw new RuntimeException("Row {$rowNumber}: Missing or invalid score for {$part['name']}.");
+            }
+
+            $score = (float)(int)round((float)$raw);
+            if ($score < 0 || $score > (float)$part['max_score']) {
+                throw new RuntimeException("Row {$rowNumber}: Score out of range for {$part['name']} (0-" . $part['max_score'] . ').');
+            }
+
+            $scores[$partId] = $score;
+        }
+
+        return $scores;
+    }
+
+    private static function saveBulkStudentScores(PDO $pdo, int $studentId, array $scores, int $userId): void
+    {
+        $sql = "INSERT INTO student_exam_scores (student_id, exam_part_id, score, encoded_by, updated_by)
+                VALUES (:student_id, :exam_part_id, :score, :encoded_by, :updated_by)
+                ON DUPLICATE KEY UPDATE
+                score = VALUES(score),
+                updated_by = VALUES(updated_by),
+                updated_at = CURRENT_TIMESTAMP,
+                is_deleted = 0,
+                deleted_at = NULL";
+        $stmt = $pdo->prepare($sql);
+
+        foreach ($scores as $partId => $score) {
+            $stmt->execute([
+                ':student_id' => $studentId,
+                ':exam_part_id' => (int)$partId,
+                ':score' => $score,
+                ':encoded_by' => $userId,
+                ':updated_by' => $userId,
+            ]);
+        }
+    }
+
+    private static function buildStudentName(string $lastName, string $firstName, string $middleName): string
+    {
+        $parts = [
+            trim($firstName),
+            trim($middleName),
+            trim($lastName),
+        ];
+
+        return trim(implode(' ', array_values(array_filter($parts, static fn(string $part): bool => $part !== ''))));
+    }
+
+    private static function normalizeStudentEmail(string $email): ?string
+    {
+        $email = trim($email);
+        if ($email === '') {
+            return null;
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
     }
 
     private static function getActiveSemester(): ?array
@@ -1716,5 +2662,21 @@ final class AdmissionController
         } catch (Throwable $e) {
             return null;
         }
+    }
+
+    private static function hasCctChoiceColumn(): bool
+    {
+        if (self::$cctChoiceColumnExists !== null) {
+            return self::$cctChoiceColumnExists;
+        }
+
+        try {
+            $st = Database::pdo()->query("SHOW COLUMNS FROM students LIKE 'cct_choice'");
+            self::$cctChoiceColumnExists = (bool)$st->fetch();
+        } catch (Throwable) {
+            self::$cctChoiceColumnExists = false;
+        }
+
+        return self::$cctChoiceColumnExists;
     }
 }

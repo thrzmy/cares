@@ -69,7 +69,7 @@ final class ScoresService
                     throw new RuntimeException("Please enter a valid score for {$label}.");
                 }
 
-                $score = (float)$raw;
+                $score = (float)(int)round((float)$raw);
                 if ($score < 0 || $score > $maxScore) {
                     $label = $partsName[$partId] ?? ('Exam Part ' . $partId);
                     throw new RuntimeException("Score out of range for {$label} (0-{$maxScore}).");

@@ -41,13 +41,13 @@ final class AdminController
         }
 
         if ($q !== '') {
-            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
+            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.application_number LIKE :q_application_number)";
             $like = '%' . $q . '%';
             $params[':q_name'] = $like;
             $params[':q_email'] = $like;
-            $params[':q_id'] = $like;
+            $params[':q_application_number'] = $like;
         }
-        if (in_array($status, ['pending', 'admitted', 'rejected', 'waitlisted'], true)) {
+        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
@@ -104,9 +104,11 @@ final class AdminController
         $offset = ($page - 1) * $perPage;
 
         $sql = "SELECT s.id,
-                       s.id_number,
+                       s.application_number,
                        s.name,
                        s.email,
+                       s.application_status,
+                       s.screening_status,
                        s.status,
                        s.is_deleted,
                        s.is_archived,
@@ -134,7 +136,7 @@ final class AdminController
                 static fn($row) => (int)$row['id'],
                 $students
             );
-            $recommendations = self::getRecommendationsForStudents($studentIds, 1);
+            $recommendations = RecommendationService::getQualifiedRecommendationsForStudents($studentIds);
         }
 
         View::render('admin/scores', [
@@ -176,7 +178,7 @@ final class AdminController
         RoleMiddleware::requireRole('administrator');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, id_number, name, email, status
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, first_choice, second_choice, application_status, screening_status, status
                                         FROM students
                                         WHERE id = :id
                                           AND (is_deleted = 0 OR COALESCE(is_archived, 0) = 1 OR is_deleted = 1)
@@ -193,7 +195,9 @@ final class AdminController
         $parts = WeightsService::getExamParts();
         $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
-        $courseSummaries = self::getCourseRecommendationsForStudent($id);
+        $courseSummaries = RecommendationService::getCourseEvaluationsForStudent($id);
+        $student['first_choice_label'] = self::resolveCourseChoiceLabel((string)($student['first_choice'] ?? ''));
+        $student['second_choice_label'] = self::resolveCourseChoiceLabel((string)($student['second_choice'] ?? ''));
 
         View::render('admin/view_scores', [
             'title' => 'View Scores',
@@ -203,6 +207,22 @@ final class AdminController
             'scoresMap' => $scoresMap,
             'courseSummaries' => $courseSummaries,
         ]);
+    }
+
+    private static function resolveCourseChoiceLabel(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 'Not selected';
+        }
+
+        foreach (WeightsService::getAllCourses() as $course) {
+            if ($value === (string)$course['id'] || strcasecmp($value, (string)$course['course_code']) === 0) {
+                return (string)$course['course_code'] . ' - ' . (string)$course['course_name'];
+            }
+        }
+
+        return $value;
     }
 
     public static function results(): void
@@ -216,36 +236,71 @@ final class AdminController
         RoleMiddleware::requireRole('administrator');
 
         $allCourses = WeightsService::getAllCourses();
-        $page = max(1, (int)($_GET['page'] ?? 1));
-        $perPage = 5;
-        $total = count($allCourses);
-        $pages = max(1, (int)ceil($total / $perPage));
-        if ($page > $pages) {
-            $page = $pages;
+        $courseCategories = WeightsService::getCourseCategories($allCourses);
+        $q = trim((string)($_GET['q'] ?? ''));
+        $courseCategoryFilter = trim((string)($_GET['course_category'] ?? ''));
+
+        if ($courseCategoryFilter !== '' && !in_array($courseCategoryFilter, $courseCategories, true)) {
+            $courseCategoryFilter = '';
         }
-        $offset = ($page - 1) * $perPage;
-        $courses = array_slice($allCourses, $offset, $perPage);
-        // Use grouped exam parts for the UI
+
+        $courses = array_values(array_filter(
+            $allCourses,
+            static function (array $course) use ($q, $courseCategoryFilter): bool {
+                $matchesCategory = $courseCategoryFilter === ''
+                    || (string)($course['course_category'] ?? '') === $courseCategoryFilter;
+
+                if (!$matchesCategory) {
+                    return false;
+                }
+
+                if ($q === '') {
+                    return true;
+                }
+
+                $haystacks = [
+                    (string)($course['course_code'] ?? ''),
+                    (string)($course['course_name'] ?? ''),
+                    (string)($course['course_category'] ?? ''),
+                ];
+
+                foreach ($haystacks as $haystack) {
+                    if ($haystack !== '' && stripos($haystack, $q) !== false) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        ));
+
         $groupedParts = WeightsService::getExamPartsGrouped();
         $weightsMap = WeightsService::getWeightsMap();
+        $criteriaByCourse = [];
+        foreach ($courses as $course) {
+            $criteriaByCourse[(int)$course['id']] = RecommendationService::getCourseRequirementGuide((string)$course['course_code']);
+        }
+        $totalParts = 0;
+        foreach ($groupedParts as $group) {
+            $totalParts += count($group['parts'] ?? []);
+        }
 
         View::render('admin/matrix', [
             'title' => 'Matrix Configuration',
             'courses' => $courses,
+            'courseCategories' => $courseCategories,
             'groupedParts' => $groupedParts,
             'weightsMap' => $weightsMap,
+            'criteriaByCourse' => $criteriaByCourse,
+            'matrixOverview' => [
+                'course_count' => count($courses),
+                'category_count' => count($groupedParts),
+                'part_count' => $totalParts,
+            ],
             'success' => flash('success'),
             'error' => flash('error'),
-            'pagination' => [
-                'page' => $page,
-                'pages' => $pages,
-                'total' => $total,
-                'perPage' => $perPage,
-                'from' => $total > 0 ? $offset + 1 : 0,
-                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
-                'basePath' => '/administrator/matrix',
-                'query' => [],
-            ],
+            'q' => $q,
+            'courseCategoryFilter' => $courseCategoryFilter,
         ]);
     }
 
@@ -256,7 +311,8 @@ final class AdminController
 
         $weights = $_POST['weights'] ?? [];
         $maxScores = $_POST['max_scores'] ?? [];
-        $page = max(1, (int)($_POST['page'] ?? 1));
+        $filterQ = trim((string)($_POST['filter_q'] ?? ''));
+        $filterCourseCategory = trim((string)($_POST['filter_course_category'] ?? ''));
 
         $userId = currentUserId();
         if ($userId === null) {
@@ -288,7 +344,15 @@ final class AdminController
             flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to save matrix configuration.');
         }
 
-        redirect('/administrator/matrix' . ($page > 1 ? ('?page=' . $page) : ''));
+        $params = [];
+        if ($filterQ !== '') {
+            $params['q'] = $filterQ;
+        }
+        if ($filterCourseCategory !== '') {
+            $params['course_category'] = $filterCourseCategory;
+        }
+
+        redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
     }
 
     public static function addCourse(): void
@@ -298,21 +362,82 @@ final class AdminController
 
         $code = trim((string)($_POST['course_code'] ?? ''));
         $name = trim((string)($_POST['course_name'] ?? ''));
+        $courseCategory = trim((string)($_POST['course_category'] ?? ''));
+        $filterQ = trim((string)($_POST['filter_q'] ?? ''));
+        $filterCourseCategory = trim((string)($_POST['filter_course_category'] ?? ''));
 
-        if ($code === '' || $name === '') {
-            flash('error', 'Course code and name are required.');
-            redirect('/administrator/matrix');
+        if ($code === '' || $name === '' || $courseCategory === '') {
+            flash('error', 'Course code, name, and category are required.');
+            $params = [];
+            if ($filterQ !== '') {
+                $params['q'] = $filterQ;
+            }
+            if ($filterCourseCategory !== '') {
+                $params['course_category'] = $filterCourseCategory;
+            }
+            redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
         }
 
         try {
-            $courseId = WeightsService::addCourse($code, $name);
+            $courseId = WeightsService::addCourse($code, $name, $courseCategory);
             Logger::log(currentUserId(), 'ADD_COURSE', 'courses', $courseId, "Administrator added course: {$code}");
             flash('success', "Course '{$code}' added successfully.");
         } catch (Throwable $e) {
             flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to add course.');
         }
 
-        redirect('/administrator/matrix');
+        $params = [];
+        if ($filterQ !== '') {
+            $params['q'] = $filterQ;
+        }
+        if ($filterCourseCategory !== '') {
+            $params['course_category'] = $filterCourseCategory;
+        }
+
+        redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
+    }
+
+    public static function updateCourse(): void
+    {
+        verifyCsrfOrFail();
+        RoleMiddleware::requireRole('administrator');
+
+        $id = (int)($_POST['course_id'] ?? 0);
+        $code = trim((string)($_POST['course_code'] ?? ''));
+        $name = trim((string)($_POST['course_name'] ?? ''));
+        $courseCategory = trim((string)($_POST['course_category'] ?? ''));
+        $filterQ = trim((string)($_POST['filter_q'] ?? ''));
+        $filterCourseCategory = trim((string)($_POST['filter_course_category'] ?? ''));
+
+        if ($id <= 0 || $code === '' || $name === '' || $courseCategory === '') {
+            flash('error', 'Course code, name, and category are required.');
+            $params = [];
+            if ($filterQ !== '') {
+                $params['q'] = $filterQ;
+            }
+            if ($filterCourseCategory !== '') {
+                $params['course_category'] = $filterCourseCategory;
+            }
+            redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
+        }
+
+        try {
+            WeightsService::updateCourse($id, $code, $name, $courseCategory);
+            Logger::log(currentUserId(), 'UPDATE_COURSE', 'courses', $id, "Administrator updated course: {$code}");
+            flash('success', "Course '{$code}' updated successfully.");
+        } catch (Throwable $e) {
+            flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to update course.');
+        }
+
+        $params = [];
+        if ($filterQ !== '') {
+            $params['q'] = $filterQ;
+        }
+        if ($filterCourseCategory !== '') {
+            $params['course_category'] = $filterCourseCategory;
+        }
+
+        redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
     }
 
     public static function deleteCourse(): void
@@ -321,9 +446,18 @@ final class AdminController
         RoleMiddleware::requireRole('administrator');
 
         $id = (int)($_POST['course_id'] ?? 0);
+        $filterQ = trim((string)($_POST['filter_q'] ?? ''));
+        $filterCourseCategory = trim((string)($_POST['filter_course_category'] ?? ''));
         if ($id <= 0) {
             flash('error', 'Invalid course ID.');
-            redirect('/administrator/matrix');
+            $params = [];
+            if ($filterQ !== '') {
+                $params['q'] = $filterQ;
+            }
+            if ($filterCourseCategory !== '') {
+                $params['course_category'] = $filterCourseCategory;
+            }
+            redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
         }
 
         try {
@@ -334,7 +468,15 @@ final class AdminController
             flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to delete course.');
         }
 
-        redirect('/administrator/matrix');
+        $params = [];
+        if ($filterQ !== '') {
+            $params['q'] = $filterQ;
+        }
+        if ($filterCourseCategory !== '') {
+            $params['course_category'] = $filterCourseCategory;
+        }
+
+        redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
     }
 
     public static function addExamPart(): void
@@ -345,14 +487,30 @@ final class AdminController
         $name = trim((string)($_POST['name'] ?? ''));
         $maxScoreRaw = trim((string)($_POST['max_score'] ?? '100'));
         $categoryId = (int)($_POST['category_id'] ?? 0);
+        $filterQ = trim((string)($_POST['filter_q'] ?? ''));
+        $filterCourseCategory = trim((string)($_POST['filter_course_category'] ?? ''));
 
         if ($name === '') {
             flash('error', 'Exam part name is required.');
-            redirect('/administrator/matrix');
+            $params = [];
+            if ($filterQ !== '') {
+                $params['q'] = $filterQ;
+            }
+            if ($filterCourseCategory !== '') {
+                $params['course_category'] = $filterCourseCategory;
+            }
+            redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
         }
         if (!is_numeric($maxScoreRaw) || (float)$maxScoreRaw <= 0) {
             flash('error', 'Max score must be a positive number.');
-            redirect('/administrator/matrix');
+            $params = [];
+            if ($filterQ !== '') {
+                $params['q'] = $filterQ;
+            }
+            if ($filterCourseCategory !== '') {
+                $params['course_category'] = $filterCourseCategory;
+            }
+            redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
         }
 
         try {
@@ -363,7 +521,15 @@ final class AdminController
             flash('error', APP_DEBUG ? $e->getMessage() : 'Failed to add exam part.');
         }
 
-        redirect('/administrator/matrix');
+        $params = [];
+        if ($filterQ !== '') {
+            $params['q'] = $filterQ;
+        }
+        if ($filterCourseCategory !== '') {
+            $params['course_category'] = $filterCourseCategory;
+        }
+
+        redirect('/administrator/matrix' . (!empty($params) ? ('?' . http_build_query($params)) : ''));
     }
 
     public static function logs(): void
@@ -399,11 +565,11 @@ final class AdminController
                 u.email LIKE :q_user_email OR
                 l.details LIKE :q_details OR
                 s.name LIKE :q_student_name OR
-                s.id_number LIKE :q_student_id_number OR
+                s.application_number LIKE :q_student_application_number OR
                 eu.name LIKE :q_entity_user_name OR
                 eu.email LIKE :q_entity_user_email OR
                 ses_student.name LIKE :q_score_student_name OR
-                ses_student.id_number LIKE :q_score_student_id_number OR
+                ses_student.application_number LIKE :q_score_student_application_number OR
                 ses_part.name LIKE :q_score_part_name OR
                 wc.course_name LIKE :q_weight_course_name OR
                 wc.course_code LIKE :q_weight_course_code OR
@@ -414,11 +580,11 @@ final class AdminController
             $params[':q_user_email'] = $like;
             $params[':q_details'] = $like;
             $params[':q_student_name'] = $like;
-            $params[':q_student_id_number'] = $like;
+            $params[':q_student_application_number'] = $like;
             $params[':q_entity_user_name'] = $like;
             $params[':q_entity_user_email'] = $like;
             $params[':q_score_student_name'] = $like;
-            $params[':q_score_student_id_number'] = $like;
+            $params[':q_score_student_application_number'] = $like;
             $params[':q_score_part_name'] = $like;
             $params[':q_weight_course_name'] = $like;
             $params[':q_weight_course_code'] = $like;
@@ -479,7 +645,7 @@ final class AdminController
                        CASE
                            WHEN l.entity = 'student_exam_scores'
                                THEN CONCAT(
-                                   COALESCE(ses_student.id_number, 'No ID'),
+                                   COALESCE(ses_student.application_number, 'No Application Number'),
                                    ' / ',
                                    COALESCE(ses_part.name, 'Exam Part')
                                )
@@ -490,7 +656,7 @@ final class AdminController
                                    ' / ',
                                    COALESCE(wep.name, 'Exam Part')
                                )
-                           ELSE COALESCE(s.id_number, eu.email)
+                           ELSE COALESCE(s.application_number, eu.email)
                        END AS entity_ref
                 FROM logs l
                 LEFT JOIN users u ON u.id = l.user_id
@@ -1016,86 +1182,12 @@ final class AdminController
 
     private static function getRecommendationsForStudents(array $studentIds, int $limit): array
     {
-        if (empty($studentIds)) {
-            return [];
-        }
-
-        $placeholders = implode(',', array_fill(0, count($studentIds), '?'));
-        $sql = "WITH ranked AS (
-                    SELECT
-                        ses.student_id,
-                        c.course_code,
-                        c.course_name,
-                        SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY ses.student_id
-                            ORDER BY SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) DESC
-                        ) AS rn
-                    FROM student_exam_scores ses
-                    INNER JOIN exam_parts ep
-                        ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
-                    INNER JOIN weights w
-                        ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
-                    INNER JOIN courses c
-                        ON c.id = w.course_id AND c.is_deleted = 0
-                    WHERE ses.is_deleted = 0
-                      AND ses.student_id IN ($placeholders)
-                    GROUP BY ses.student_id, c.id
-                )
-                SELECT student_id, course_code, course_name, total_score, rn
-                FROM ranked
-                WHERE rn <= ?
-                ORDER BY student_id, rn";
-
-        $st = Database::pdo()->prepare($sql);
-        $st->execute(array_merge($studentIds, [$limit]));
-        $rows = $st->fetchAll();
-
-        $result = [];
-        foreach ($rows as $row) {
-            $studentId = (int)$row['student_id'];
-            if (!isset($result[$studentId])) {
-                $result[$studentId] = [];
-            }
-            $result[$studentId][] = [
-                'course_code' => (string)$row['course_code'],
-                'course_name' => (string)$row['course_name'],
-                'total_score' => (float)$row['total_score'],
-                'rank' => (int)$row['rn'],
-            ];
-        }
-
-        return $result;
+        return RecommendationService::getQualifiedRecommendationsForStudents($studentIds, $limit);
     }
 
     private static function getCourseRecommendationsForStudent(int $studentId): array
     {
-        $sql = "SELECT
-                    c.course_code,
-                    c.course_name,
-                    SUM((ses.score / NULLIF(ep.max_score, 0)) * w.weight) AS total_score
-                FROM student_exam_scores ses
-                INNER JOIN exam_parts ep
-                    ON ep.id = ses.exam_part_id AND ep.is_deleted = 0
-                INNER JOIN weights w
-                    ON w.exam_part_id = ses.exam_part_id AND w.is_deleted = 0
-                INNER JOIN courses c
-                    ON c.id = w.course_id AND c.is_deleted = 0
-                WHERE ses.is_deleted = 0
-                  AND ses.student_id = :student_id
-                GROUP BY c.id
-                ORDER BY total_score DESC, c.course_name ASC";
-
-        $st = Database::pdo()->prepare($sql);
-        $st->execute([':student_id' => $studentId]);
-
-        return array_map(static function (array $row): array {
-            return [
-                'course_code' => (string)$row['course_code'],
-                'course_name' => (string)$row['course_name'],
-                'total_score' => (float)$row['total_score'],
-            ];
-        }, $st->fetchAll());
+        return RecommendationService::getCourseEvaluationsForStudent($studentId);
     }
 
     private static function getPrintableReportData(string $reportType, string $startDate, string $endDate): array
@@ -1119,7 +1211,7 @@ final class AdminController
             $where .= $addDateFilter('s.created_at', $params);
 
             $st = Database::pdo()->prepare(
-                "SELECT s.id_number,
+                "SELECT s.application_number,
                         s.name,
                         s.email,
                         s.status,
@@ -1144,7 +1236,7 @@ final class AdminController
             $params = [];
             $dateFilter = $addDateFilter('ses.created_at', $params);
             $st = Database::pdo()->prepare(
-                "SELECT s.id_number,
+                "SELECT s.application_number,
                         s.name,
                         s.status,
                         ROUND(SUM(ses.score), 2) AS total_exam_score,
@@ -1169,7 +1261,7 @@ final class AdminController
             "WITH ranked AS (
                 SELECT
                     s.id,
-                    s.id_number,
+                    s.application_number,
                     s.name,
                     sy.name AS school_year_name,
                     sem.name AS semester_name,
@@ -1202,7 +1294,7 @@ final class AdminController
                   {$dateFilter}
                 GROUP BY s.id, c.id
             )
-            SELECT id_number,
+            SELECT application_number,
                    name,
                    school_year_name,
                    semester_name,
