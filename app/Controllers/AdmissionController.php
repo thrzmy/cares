@@ -79,7 +79,7 @@ final class AdmissionController
 
         if (ScoresService::hasScores($id)) {
             if (!$viewMode) {
-                flash('error', 'Scores already encoded. Please edit in Result Storage.');
+                flash('error', 'Scores already encoded. Please edit them in Results & Recommendation.');
                 redirect('/admission/encode');
             }
 
@@ -126,7 +126,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_POST['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, first_choice, second_choice, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -137,7 +137,7 @@ final class AdmissionController
         }
 
         $mode = (string)($_POST['mode'] ?? 'encode');
-        if ($mode !== 'edit' && ScoresService::hasScores($id)) {
+        if (!in_array($mode, ['edit', 'summary-edit'], true) && ScoresService::hasScores($id)) {
             flash('error', 'Scores already encoded');
             redirect('/admission/encode');
         }
@@ -154,7 +154,10 @@ final class AdmissionController
             Logger::log($userId, 'ENCODE_SCORES', 'students', $id, 'Admission encoded exam part scores');
             flash('success', 'Scores saved successfully.');
             if ($mode === 'edit') {
-                redirect('/admission/storage/edit?id=' . $id);
+                redirect('/admission/results/view?id=' . $id);
+            }
+            if ($mode === 'summary-edit') {
+                redirect('/admission/results/view?id=' . $id);
             }
             redirect('/admission/encode/edit?id=' . $id . '&view=1');
         } catch (Throwable $e) {
@@ -496,7 +499,7 @@ final class AdmissionController
         RoleMiddleware::requireRole('admission');
 
         $id = (int)($_GET['id'] ?? 0);
-        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
+        $st = Database::pdo()->prepare("SELECT id, application_number, name, email, first_choice, second_choice, application_status, screening_status, status FROM students WHERE id = :id AND is_deleted = 0 AND COALESCE(is_archived, 0) = 0 LIMIT 1");
         $st->execute([':id' => $id]);
         $student = $st->fetch();
 
@@ -521,114 +524,15 @@ final class AdmissionController
             'groupedParts' => $groupedParts,
             'scoresMap' => $scoresMap,
             'courseSummaries' => $courseSummaries,
+            'success' => flash('success'),
+            'error' => flash('error'),
         ]);
     }
 
     public static function storage(): void
     {
         RoleMiddleware::requireRole('admission');
-
-        $q = trim((string)($_GET['q'] ?? ''));
-        $status = trim((string)($_GET['status'] ?? ''));
-        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
-        $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
-        $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
-
-        $params = [];
-        if ($recordScope === 'archived') {
-            $where = "WHERE (s.is_deleted = 1 OR COALESCE(s.is_archived, 0) = 1)
-                  AND EXISTS (
-                      SELECT 1
-                      FROM student_exam_scores ses
-                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
-                  )";
-        } else {
-            $recordScope = 'active';
-            $where = "WHERE s.is_deleted = 0
-                  AND COALESCE(s.is_archived, 0) = 0
-                  AND EXISTS (
-                      SELECT 1
-                      FROM student_exam_scores ses
-                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
-                  )";
-        }
-        if ($q !== '') {
-            $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.application_number LIKE :q_application_number)";
-            $like = '%' . $q . '%';
-            $params[':q_name'] = $like;
-            $params[':q_email'] = $like;
-            $params[':q_application_number'] = $like;
-        }
-        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
-            $where .= " AND s.status = :status";
-            $params[':status'] = $status;
-        }
-        if ($recordScope === 'archived' && $schoolYearId > 0) {
-            $where .= " AND sy.id = :school_year_id";
-            $params[':school_year_id'] = $schoolYearId;
-        }
-        if ($recordScope === 'archived' && $semesterId > 0) {
-            $where .= " AND sem.id = :semester_id";
-            $params[':semester_id'] = $semesterId;
-        }
-
-        $archivedSchoolYears = [];
-        $archivedSemesters = [];
-        $archivedSemestersByYear = [];
-        if ($recordScope === 'archived') {
-            $archivedSchoolYears = Database::pdo()->query("
-                SELECT id, name
-                FROM school_years
-                WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 1
-                ORDER BY created_at DESC
-            ")->fetchAll();
-
-            $allSemesterRows = Database::pdo()->query("
-                SELECT id, school_year_id, name
-                FROM semesters
-                WHERE is_deleted = 0
-                ORDER BY FIELD(name, '1st Semester', '2nd Semester', 'Summer')
-            ")->fetchAll();
-            foreach ($allSemesterRows as $semesterRow) {
-                $archivedSemestersByYear[(int)$semesterRow['school_year_id']][] = [
-                    'id' => (int)$semesterRow['id'],
-                    'name' => (string)$semesterRow['name'],
-                ];
-            }
-
-            if ($schoolYearId > 0) {
-                $archivedSemesters = $archivedSemestersByYear[$schoolYearId] ?? [];
-            }
-        }
-
-        $sql = "SELECT s.id, s.application_number, s.name, s.email, s.application_status, s.screening_status, s.status, s.created_at,
-                       s.is_deleted, s.is_archived,
-                       sem.name AS semester_name,
-                       sy.name AS school_year_name
-                FROM students s
-                LEFT JOIN semesters sem ON sem.id = s.semester_id
-                LEFT JOIN school_years sy ON sy.id = sem.school_year_id
-                $where
-                ORDER BY s.created_at DESC";
-        $st = Database::pdo()->prepare($sql);
-        $st->execute($params);
-        $students = $st->fetchAll();
-
-        View::render('admission/storage', [
-            'title' => 'Result Storage',
-            'students' => $students,
-            'q' => $q,
-            'statusFilter' => $status,
-            'recordScopeFilter' => $recordScope,
-            'activeSemester' => self::getActiveSemester(),
-            'schoolYearFilter' => $schoolYearId,
-            'semesterFilter' => $semesterId,
-            'archivedSchoolYears' => $archivedSchoolYears,
-            'archivedSemesters' => $archivedSemesters,
-            'archivedSemestersByYear' => $archivedSemestersByYear,
-            'success' => flash('success'),
-            'error' => flash('error'),
-        ]);
+        redirect('/admission/results');
     }
 
     public static function editStoredScores(): void

@@ -37,25 +37,13 @@ RoleMiddleware::requireRole('admission');
     </div>
 
     <div class="col-12 col-sm-6 col-xl-3">
-        <a href="<?= e(BASE_PATH) ?>/admission/storage" class="text-decoration-none">
-            <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center info">
-                <div class="icon-wrapper mx-auto mb-3 shadow-sm text-info bg-info bg-opacity-10">
-                    <i class="fa-solid fa-database fs-4"></i>
-                </div>
-                <h5 class="fw-bold text-dark mb-1">Result Storage</h5>
-                <span class="text-muted small fw-medium mt-auto">Review and update recorded scores</span>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-12 col-sm-6 col-xl-3">
         <a href="<?= e(BASE_PATH) ?>/admission/results" class="text-decoration-none">
             <div class="card stat-card border-0 h-100 p-4 d-flex flex-column align-items-center text-center success">
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-warning bg-warning bg-opacity-10">
                     <i class="fa-solid fa-square-poll-vertical fs-4 text-warning"></i>
                 </div>
                 <h5 class="fw-bold text-dark mb-1">Results & Recommendation</h5>
-                <span class="text-muted small fw-medium mt-auto">Review results and recommendations</span>
+                <span class="text-muted small fw-medium mt-auto">Review results, recommendations, and edit saved scores</span>
             </div>
         </a>
     </div>

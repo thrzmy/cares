@@ -125,7 +125,9 @@ $recommendationDisplay = static function (array $recs): array {
           <?php else: ?>
             <div class="text-muted small mt-2"><?= e((string)$recDisplay['message']) ?></div>
           <?php endif; ?>
-          <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/admission/results/view?id=<?= (int)$s['id'] ?>">View Summary</a>
+          <div class="d-grid gap-2 mt-3">
+            <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/results/view?id=<?= (int)$s['id'] ?>">View Summary</a>
+          </div>
         </div>
       </div>
     <?php endforeach; ?>

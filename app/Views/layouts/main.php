@@ -128,12 +128,6 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                             </a>
                         </li>
                         <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/storage') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/storage">
-                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-database fs-5"></i></div>
-                                <span>Result Storage</span>
-                            </a>
-                        </li>
-                        <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/results') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/results">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-square-poll-vertical fs-5"></i></div>
                                 <span>Results & Recommendation</span>

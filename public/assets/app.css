@@ -284,6 +284,26 @@ h1, h2, h3, h4, h5, h6, .font-cinzel {
   box-shadow: 0 4px 8px rgba(111, 17, 25, 0.3);
 }
 
+[data-summary-score-actions] .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+
+[data-summary-score-actions] .btn-primary:disabled {
+  background-color: var(--cares-maroon);
+  border-color: var(--cares-maroon);
+  color: #fff;
+}
+
+[data-summary-score-actions] .btn-outline-secondary:disabled {
+  background-color: transparent;
+  border-color: rgba(33, 37, 41, 0.25);
+  color: rgba(33, 37, 41, 0.55);
+}
+
 .btn-outline-primary {
   color: var(--cares-maroon);
   border-color: var(--cares-maroon);

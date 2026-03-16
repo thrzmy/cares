@@ -220,7 +220,7 @@ $screeningBadgeClass = $screeningStatus === 'qualified'
                     <td>
                       <div class="summary-score-main"><?= e(number_format((float)($course['total_score'] ?? 0), 2)) ?>%</div>
                       <div class="summary-score-sub">
-                        Core <?= e(number_format((float)($course['core_percentage'] ?? 0), 0)) ?>/80
+                        Exam - <?= e(number_format((float)($course['core_percentage'] ?? 0), 0)) ?>/80
                       </div>
                     </td>
                     <td>
@@ -241,56 +241,5 @@ $screeningBadgeClass = $screeningStatus === 'qualified'
       <?php endif; ?>
     </section>
 
-    <section class="result-summary-section mt-3">
-      <div class="summary-section-head">
-        <div>
-          <h6 class="summary-section-head__title">Exam Part Scores</h6>
-          <p class="summary-section-head__subtitle mb-0">Recorded scores are grouped by exam section for easier checking.</p>
-        </div>
-      </div>
-
-      <?php if (!empty($sortedParts)): ?>
-        <div class="row g-3">
-          <?php foreach (($groupedParts ?: [['category_name' => 'Exam Parts', 'parts' => $sortedParts]]) as $group): ?>
-            <div class="col-12 col-xl-6">
-              <section class="encode-part-card h-100">
-                <header class="encode-part-card__header">
-                  <h6 class="encode-part-card__title mb-0"><?= e((string)($group['category_name'] ?? 'Exam Parts')) ?></h6>
-                </header>
-                <div class="encode-part-card__body">
-                  <div class="row g-3">
-                    <?php foreach (($group['parts'] ?? []) as $part): ?>
-                      <?php
-                      $partId = (int)$part['id'];
-                      $maxScore = (float)$part['max_score'];
-                      $value = $scoresMap[$partId] ?? null;
-                      ?>
-                      <div class="col-12 col-md-6">
-                        <label class="encode-score-label">
-                          <span><?= e((string)$part['name']) ?></span>
-                          <span class="encode-score-max">Max: <?= e(number_format($maxScore, 0)) ?></span>
-                        </label>
-                        <div class="encode-score-input-wrap">
-                          <input
-                            class="form-control encode-score-input"
-                            type="text"
-                            value="<?= e($value === null ? '0' : number_format((float)$value, 0, '.', '')) ?>"
-                            readonly
-                            disabled
-                          >
-                          <span class="encode-score-suffix">pts</span>
-                        </div>
-                      </div>
-                    <?php endforeach; ?>
-                  </div>
-                </div>
-              </section>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      <?php else: ?>
-        <div class="text-muted">No exam parts configured yet.</div>
-      <?php endif; ?>
-    </section>
   </div>
 </div>
