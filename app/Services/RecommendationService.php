@@ -58,6 +58,23 @@ final class RecommendationService
         return self::calculatePart2BProfile(self::getStudentScoresByName($studentId));
     }
 
+    public static function getExamResultForStudent(int $studentId): string
+    {
+        return self::determineExamResultFromScoresMap(self::getStudentScoresByName($studentId));
+    }
+
+    public static function getExamResultsForStudents(array $studentIds): array
+    {
+        $results = [];
+        foreach (array_values(array_unique(array_map('intval', $studentIds))) as $studentId) {
+            if ($studentId > 0) {
+                $results[$studentId] = self::getExamResultForStudent($studentId);
+            }
+        }
+
+        return $results;
+    }
+
     public static function getCourseEvaluationsForStudents(array $studentIds): array
     {
         $studentIds = array_values(array_unique(array_map('intval', $studentIds)));
@@ -358,9 +375,21 @@ final class RecommendationService
 
     private static function determineExamResultFromScoresMap(array $scoreMap): string
     {
+        $hasAnyPart1Score = false;
+        foreach (self::PART1_NAMES as $name) {
+            if (isset($scoreMap[$name])) {
+                $hasAnyPart1Score = true;
+                break;
+            }
+        }
+
+        if (!$hasAnyPart1Score) {
+            return 'pending';
+        }
+
         foreach (self::PART1_NAMES as $name) {
             if (!isset($scoreMap[$name])) {
-                return 'pending';
+                return 'failed';
             }
             if ((float)$scoreMap[$name]['score'] < 12.0) {
                 return 'failed';

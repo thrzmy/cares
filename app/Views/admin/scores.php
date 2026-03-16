@@ -26,14 +26,14 @@ $recommendationDisplay = static function (array $recs): array {
     return [
       'state' => 'other_match',
       'items' => [],
-      'message' => 'Qualified in other programs, but not in the selected choices.',
+      'message' => 'Qualified in other program(s).',
     ];
   }
 
   return [
     'state' => 'none',
     'items' => [],
-    'message' => 'No qualified program recommendation.',
+    'message' => 'No qualified program.',
   ];
 };
 ?>
@@ -72,10 +72,9 @@ $recommendationDisplay = static function (array $recs): array {
       <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or application number">
     </div>
     <div class="col-12 col-md-4">
-      <label class="form-label small">Exam Result</label>
+      <label class="form-label small">Status</label>
       <select class="form-select" name="status">
         <option value="">All statuses</option>
-        <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
         <option value="passed" <?= ($statusFilter ?? '') === 'passed' ? 'selected' : '' ?>>Passed</option>
         <option value="failed" <?= ($statusFilter ?? '') === 'failed' ? 'selected' : '' ?>>Failed</option>
       </select>
@@ -192,7 +191,8 @@ $recommendationDisplay = static function (array $recs): array {
             <th>Application Number</th>
             <th>Name</th>
             <th>Email</th>
-            <th>Result</th>
+            <th>Exam</th>
+            <th>Qualified</th>
             <th>Qualified Program(s)</th>
             <th class="text-end">Actions</th>
           </tr>
@@ -206,14 +206,13 @@ $recommendationDisplay = static function (array $recs): array {
               <td class="fw-semibold"><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
               <td>
-                <div class="d-flex flex-wrap gap-1">
-                  <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-                    <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
-                  </span>
-                </div>
+                <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span>
                 <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
                   <div class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
                 <?php endif; ?>
+              </td>
+              <td>
+                <span class="badge <?= e((string)($s['screening_status'] ?? 'pending') === 'qualified' ? 'text-bg-success' : 'text-bg-danger') ?>"><?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></span>
               </td>
               <td>
                 <?php if (!empty($recDisplay['items'])): ?>

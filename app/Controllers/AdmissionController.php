@@ -20,13 +20,7 @@ final class AdmissionController
 
         $params = [];
         $where = "WHERE s.is_deleted = 0
-                  AND COALESCE(s.is_archived, 0) = 0
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM student_exam_scores ses
-                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
-                  )
-                  AND s.status = 'pending'";
+                  AND COALESCE(s.is_archived, 0) = 0";
         if ($q !== '') {
             $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.application_number LIKE :q_application_number)";
             $like = '%' . $q . '%';
@@ -42,6 +36,20 @@ final class AdmissionController
         $st = Database::pdo()->prepare($sql);
         $st->execute($params);
         $students = $st->fetchAll();
+        if (!empty($students)) {
+            $studentIds = array_map(static fn($row): int => (int)$row['id'], $students);
+            $examResults = RecommendationService::getExamResultsForStudents($studentIds);
+            foreach ($students as &$studentRow) {
+                $studentId = (int)($studentRow['id'] ?? 0);
+                $studentRow['status'] = $examResults[$studentId] ?? 'pending';
+                $studentRow['has_scores'] = ScoresService::hasScores($studentId);
+            }
+            unset($studentRow);
+            $students = array_values(array_filter(
+                $students,
+                static fn(array $studentRow): bool => (string)($studentRow['status'] ?? 'pending') === 'pending'
+            ));
+        }
 
         View::render('admission/encode', [
             'title' => 'Encode Test Results',
@@ -380,27 +388,9 @@ final class AdmissionController
             $params[':q_email'] = $like;
             $params[':q_application_number'] = $like;
         }
-        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
-            $where .= " AND s.status = :status";
-            $params[':status'] = $status;
-        }
         $archivedSchoolYears = [];
         $archivedSemesters = [];
         $archivedSemestersByYear = [];
-
-        $countSql = "SELECT COUNT(*)
-                     FROM students s
-                     LEFT JOIN semesters sem ON sem.id = s.semester_id
-                     LEFT JOIN school_years sy ON sy.id = sem.school_year_id
-                     $where";
-        $countSt = Database::pdo()->prepare($countSql);
-        $countSt->execute($params);
-        $total = (int)$countSt->fetchColumn();
-        $pages = max(1, (int)ceil($total / $perPage));
-        if ($page > $pages) {
-            $page = $pages;
-        }
-        $offset = ($page - 1) * $perPage;
 
         $sql = "SELECT s.id, s.application_number, s.name, s.email, s.application_status, s.screening_status, s.status, s.created_at,
                        s.is_deleted, s.is_archived,
@@ -410,14 +400,11 @@ final class AdmissionController
                 LEFT JOIN semesters sem ON sem.id = s.semester_id
                 LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                 $where
-                ORDER BY s.created_at DESC
-                LIMIT :limit OFFSET :offset";
+                ORDER BY s.created_at DESC";
         $st = Database::pdo()->prepare($sql);
         foreach ($params as $key => $value) {
             $st->bindValue($key, $value);
         }
-        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
-        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
         $st->execute();
         $students = $st->fetchAll();
 
@@ -428,7 +415,47 @@ final class AdmissionController
                 $students
             );
             $recommendations = RecommendationService::getQualifiedRecommendationsForStudents($studentIds);
+            $examResults = RecommendationService::getExamResultsForStudents($studentIds);
+            foreach ($students as &$studentRow) {
+                $studentId = (int)($studentRow['id'] ?? 0);
+                if ($studentId > 0 && isset($examResults[$studentId])) {
+                    $studentRow['status'] = $examResults[$studentId];
+                }
+            }
+            unset($studentRow);
+        if (in_array($status, ['passed', 'failed'], true)) {
+            $students = array_values(array_filter(
+                $students,
+                static fn(array $studentRow): bool => (string)($studentRow['status'] ?? 'pending') === $status
+            ));
+        } else {
+            $students = array_values(array_filter(
+                $students,
+                static fn(array $studentRow): bool => in_array((string)($studentRow['status'] ?? 'pending'), ['passed', 'failed'], true)
+            ));
         }
+        foreach ($students as &$studentRow) {
+            $studentId = (int)($studentRow['id'] ?? 0);
+            $studentRow['screening_status'] = $studentId > 0 && !empty($recommendations[$studentId]) ? 'qualified' : 'not_qualified';
+        }
+        unset($studentRow);
+        $recommendations = array_intersect_key(
+            $recommendations,
+            array_flip(array_map(static fn(array $row): int => (int)$row['id'], $students))
+        );
+        }
+
+        $total = count($students);
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $students = array_slice($students, $offset, $perPage);
+        $recommendations = array_intersect_key(
+            $recommendations,
+            array_flip(array_map(static fn(array $row): int => (int)$row['id'], $students))
+        );
 
         View::render('admission/results', [
             'title' => 'Results & Recommendation',
@@ -483,6 +510,7 @@ final class AdmissionController
         $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
         $courseSummaries = RecommendationService::getCourseEvaluationsForStudent($id);
+        $student['status'] = RecommendationService::getExamResultForStudent($id);
         $student['first_choice_label'] = self::resolveCourseChoiceLabel((string)($student['first_choice'] ?? ''));
         $student['second_choice_label'] = self::resolveCourseChoiceLabel((string)($student['second_choice'] ?? ''));
 

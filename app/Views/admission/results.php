@@ -21,14 +21,14 @@ $recommendationDisplay = static function (array $recs): array {
     return [
       'state' => 'other_match',
       'items' => [],
-      'message' => 'Qualified in other programs, but not in the selected choices.',
+      'message' => 'Qualified in other program(s).',
     ];
   }
 
   return [
     'state' => 'none',
     'items' => [],
-    'message' => 'No qualified program recommendation.',
+    'message' => 'No qualified program.',
   ];
 };
 ?>
@@ -64,10 +64,9 @@ $recommendationDisplay = static function (array $recs): array {
       <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or application number">
     </div>
     <div class="col-12 col-md-4">
-      <label class="form-label small">Exam Result</label>
+      <label class="form-label small">Status</label>
       <select class="form-select" name="status">
         <option value="">All statuses</option>
-        <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
         <option value="passed" <?= ($statusFilter ?? '') === 'passed' ? 'selected' : '' ?>>Passed</option>
         <option value="failed" <?= ($statusFilter ?? '') === 'failed' ? 'selected' : '' ?>>Failed</option>
       </select>
@@ -96,15 +95,12 @@ $recommendationDisplay = static function (array $recs): array {
               <div class="fw-semibold"><?= e($s['name']) ?></div>
               <div class="text-muted small"><?= e($s['email']) ?></div>
               <div class="text-muted small">Application No.: <?= e((string)($s['application_number'] ?? 'Not provided')) ?></div>
-              <div class="text-muted small mt-1">
-                App: <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?>
-                &middot;
-                Exam: <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
-              </div>
+              <div class="text-muted small mt-1">App: <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?></div>
             </div>
-            <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-              <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
-            </span>
+            <div class="d-flex flex-column align-items-end gap-1">
+              <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span>
+              <span class="badge <?= e((string)($s['screening_status'] ?? 'pending') === 'qualified' ? 'text-bg-success' : 'text-bg-danger') ?>"><?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></span>
+            </div>
           </div>
           <?php if (!empty($recDisplay['items'])): ?>
             <div class="mt-3">
@@ -143,7 +139,8 @@ $recommendationDisplay = static function (array $recs): array {
             <th>Application Number</th>
             <th>Name</th>
             <th>Email</th>
-            <th>Status</th>
+            <th>Exam</th>
+            <th>Qualified</th>
             <th>Qualified Program(s)</th>
             <th class="text-end">Actions</th>
           </tr>
@@ -155,13 +152,8 @@ $recommendationDisplay = static function (array $recs): array {
               <td class="fw-semibold"><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
               <td class="fw-semibold"><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
-              <td>
-                <div class="d-flex flex-wrap gap-1">
-                  <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-                    <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
-                  </span>
-                </div>
-              </td>
+              <td><span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span></td>
+              <td><span class="badge <?= e((string)($s['screening_status'] ?? 'pending') === 'qualified' ? 'text-bg-success' : 'text-bg-danger') ?>"><?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></span></td>
               <td>
                 <?php if (!empty($recDisplay['items'])): ?>
                   <?php foreach ($recDisplay['items'] as $rec): ?>

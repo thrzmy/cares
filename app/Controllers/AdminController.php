@@ -47,10 +47,6 @@ final class AdminController
             $params[':q_email'] = $like;
             $params[':q_application_number'] = $like;
         }
-        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
-            $where .= " AND s.status = :status";
-            $params[':status'] = $status;
-        }
         if ($recordScope === 'archived' && $schoolYearId > 0) {
             $where .= " AND sy.id = :school_year_id";
             $params[':school_year_id'] = $schoolYearId;
@@ -89,20 +85,6 @@ final class AdminController
             }
         }
 
-        $countSql = "SELECT COUNT(*)
-                     FROM students s
-                     LEFT JOIN semesters sem ON sem.id = s.semester_id
-                     LEFT JOIN school_years sy ON sy.id = sem.school_year_id
-                     $where";
-        $countSt = Database::pdo()->prepare($countSql);
-        $countSt->execute($params);
-        $total = (int)$countSt->fetchColumn();
-        $pages = max(1, (int)ceil($total / $perPage));
-        if ($page > $pages) {
-            $page = $pages;
-        }
-        $offset = ($page - 1) * $perPage;
-
         $sql = "SELECT s.id,
                        s.application_number,
                        s.name,
@@ -119,14 +101,11 @@ final class AdminController
                 LEFT JOIN semesters sem ON sem.id = s.semester_id
                 LEFT JOIN school_years sy ON sy.id = sem.school_year_id
                 $where
-                ORDER BY s.created_at DESC
-                LIMIT :limit OFFSET :offset";
+                ORDER BY s.created_at DESC";
         $st = Database::pdo()->prepare($sql);
         foreach ($params as $key => $value) {
             $st->bindValue($key, $value);
         }
-        $st->bindValue(':limit', $perPage, PDO::PARAM_INT);
-        $st->bindValue(':offset', $offset, PDO::PARAM_INT);
         $st->execute();
         $students = $st->fetchAll();
 
@@ -137,7 +116,47 @@ final class AdminController
                 $students
             );
             $recommendations = RecommendationService::getQualifiedRecommendationsForStudents($studentIds);
+            $examResults = RecommendationService::getExamResultsForStudents($studentIds);
+            foreach ($students as &$studentRow) {
+                $studentId = (int)($studentRow['id'] ?? 0);
+                if ($studentId > 0 && isset($examResults[$studentId])) {
+                    $studentRow['status'] = $examResults[$studentId];
+                }
+            }
+            unset($studentRow);
+        if (in_array($status, ['passed', 'failed'], true)) {
+            $students = array_values(array_filter(
+                $students,
+                static fn(array $studentRow): bool => (string)($studentRow['status'] ?? 'pending') === $status
+            ));
+        } else {
+            $students = array_values(array_filter(
+                $students,
+                static fn(array $studentRow): bool => in_array((string)($studentRow['status'] ?? 'pending'), ['passed', 'failed'], true)
+            ));
         }
+        foreach ($students as &$studentRow) {
+            $studentId = (int)($studentRow['id'] ?? 0);
+            $studentRow['screening_status'] = $studentId > 0 && !empty($recommendations[$studentId]) ? 'qualified' : 'not_qualified';
+        }
+        unset($studentRow);
+        $recommendations = array_intersect_key(
+            $recommendations,
+            array_flip(array_map(static fn(array $row): int => (int)$row['id'], $students))
+        );
+        }
+
+        $total = count($students);
+        $pages = max(1, (int)ceil($total / $perPage));
+        if ($page > $pages) {
+            $page = $pages;
+        }
+        $offset = ($page - 1) * $perPage;
+        $students = array_slice($students, $offset, $perPage);
+        $recommendations = array_intersect_key(
+            $recommendations,
+            array_flip(array_map(static fn(array $row): int => (int)$row['id'], $students))
+        );
 
         View::render('admin/scores', [
             'title' => 'Results & Recommendation',
@@ -196,6 +215,7 @@ final class AdminController
         $groupedParts = WeightsService::getExamPartsGrouped();
         $scoresMap = ScoresService::getStudentScoresMap($id);
         $courseSummaries = RecommendationService::getCourseEvaluationsForStudent($id);
+        $student['status'] = RecommendationService::getExamResultForStudent($id);
         $student['first_choice_label'] = self::resolveCourseChoiceLabel((string)($student['first_choice'] ?? ''));
         $student['second_choice_label'] = self::resolveCourseChoiceLabel((string)($student['second_choice'] ?? ''));
 

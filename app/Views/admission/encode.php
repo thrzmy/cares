@@ -8,7 +8,7 @@ $activeSemester = $activeSemester ?? null;
   <div>
     <div class="page-kicker">Admission</div>
     <h4 class="fw-bold mb-1">Encode Test Results</h4>
-    <p class="page-subtitle">Select a pending student, then enter scores by exam part group.</p>
+    <p class="page-subtitle">Continue encoding students whose exam result is still pending.</p>
   </div>
 </div>
 
@@ -81,9 +81,10 @@ $activeSemester = $activeSemester ?? null;
             <div>
               <div class="fw-semibold"><?= e($s['name']) ?></div>
               <div class="text-muted small"><?= e($s['email']) ?></div>
+              <div class="text-muted small">Application No.: <?= e((string)($s['application_number'] ?? 'Not provided')) ?></div>
             </div>
           </div>
-          <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/admission/encode/edit?id=<?= (int)$s['id'] ?>">Input Scores</a>
+          <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/admission/encode/edit?id=<?= (int)$s['id'] ?>"><?= !empty($s['has_scores']) ? 'Continue Encoding' : 'Input Scores' ?></a>
         </div>
       </div>
     <?php endforeach; ?>
@@ -94,18 +95,22 @@ $activeSemester = $activeSemester ?? null;
       <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
           <tr>
+            <th>Application Number</th>
             <th>Name</th>
             <th>Email</th>
+            <th>Status</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($students as $s): ?>
             <tr>
+              <td class="fw-semibold"><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
               <td class="fw-semibold"><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
+              <td><span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span></td>
               <td class="text-end">
-                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode/edit?id=<?= (int)$s['id'] ?>">Input Scores</a>
+                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/encode/edit?id=<?= (int)$s['id'] ?>"><?= !empty($s['has_scores']) ? 'Continue Encoding' : 'Input Scores' ?></a>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -115,6 +120,6 @@ $activeSemester = $activeSemester ?? null;
   </div>
 <?php else: ?>
   <div class="card shadow-sm">
-    <div class="card-body text-muted">No pending students without scores found.</div>
+    <div class="card-body text-muted">No students with pending exam evaluation found.</div>
   </div>
 <?php endif; ?>
