@@ -835,8 +835,9 @@ final class AdmissionController
         $status = (string)($_POST['status'] ?? 'pending');
         $name = self::buildStudentName($lastName, $firstName, $middleName);
 
-        if ($firstName === '' || $lastName === '') {
-            self::renderStudentFormMode('create', 'Please enter the student first name and last name.', [
+        $validationError = self::validateStudentInput($applicationNumber, $firstName, $lastName, $shsStrand, $cctChoice, $firstChoice, $secondChoice);
+        if ($validationError !== null) {
+            self::renderStudentFormMode('create', $validationError, [
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'middle_name' => $middleName,
@@ -932,13 +933,15 @@ final class AdmissionController
                                 FROM students
                                 WHERE is_deleted = 0
                                   AND (
-                                        (:email IS NOT NULL AND email = :email)
-                                     OR (:application_number <> '' AND application_number = :application_number)
+                                        (:email_check IS NOT NULL AND email = :email_match)
+                                     OR (:application_number_check <> '' AND application_number = :application_number_match)
                                   )
                                 LIMIT 1");
         $check->execute([
-            ':email' => $email,
-            ':application_number' => $applicationNumber,
+            ':email_check' => $email,
+            ':email_match' => $email,
+            ':application_number_check' => $applicationNumber,
+            ':application_number_match' => $applicationNumber,
         ]);
         if ($check->fetch()) {
             self::renderStudentFormMode('create', 'Email or application number is already in use.', [
@@ -1071,8 +1074,9 @@ final class AdmissionController
         $status = (string)($_POST['status'] ?? 'pending');
         $name = self::buildStudentName($lastName, $firstName, $middleName);
 
-        if ($firstName === '' || $lastName === '') {
-            self::renderStudentFormMode('edit', 'Please enter the student first name and last name.', [
+        $validationError = self::validateStudentInput($applicationNumber, $firstName, $lastName, $shsStrand, $cctChoice, $firstChoice, $secondChoice);
+        if ($validationError !== null) {
+            self::renderStudentFormMode('edit', $validationError, [
                 'id' => $id,
                 'first_name' => $firstName,
                 'last_name' => $lastName,
@@ -2142,6 +2146,42 @@ final class AdmissionController
         $student['first_choice_label'] = self::resolveCourseChoiceLabel((string)($student['first_choice'] ?? ''));
         $student['second_choice_label'] = self::resolveCourseChoiceLabel((string)($student['second_choice'] ?? ''));
         return $student;
+    }
+
+    private static function validateStudentInput(
+        string $applicationNumber,
+        string $firstName,
+        string $lastName,
+        string $shsStrand,
+        string $cctChoice,
+        ?string $firstChoice,
+        ?string $secondChoice
+    ): ?string {
+        if ($applicationNumber === '') {
+            return 'Please enter the application number.';
+        }
+
+        if ($firstName === '' || $lastName === '') {
+            return 'Please enter the student first name and last name.';
+        }
+
+        if ($shsStrand === '') {
+            return 'Please enter the SHS strand.';
+        }
+
+        if ($firstChoice === null) {
+            return 'Please select the 1st choice program.';
+        }
+
+        if ($secondChoice !== null && $secondChoice === $firstChoice) {
+            return 'The 2nd choice program must be different from the 1st choice.';
+        }
+
+        if ($cctChoice === 'first' && $firstChoice === null) {
+            return 'Select a 1st choice program for the chosen CCT choice.';
+        }
+
+        return null;
     }
 
     private static function parseBulkUploadFile(string $filePath, string $extension): array

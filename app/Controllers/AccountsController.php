@@ -343,8 +343,9 @@ final class AccountsController
         $status = (string)($_POST['status'] ?? 'pending');
         $name = self::buildStudentName($lastName, $firstName, $middleName);
 
-        if ($firstName === '' || $lastName === '') {
-            self::renderStudentForm('create', 'Please enter the student first name and last name.', [
+        $validationError = self::validateStudentInput($applicationNumber, $firstName, $lastName, $shsStrand, $cctChoice, $firstChoice, $secondChoice);
+        if ($validationError !== null) {
+            self::renderStudentForm('create', $validationError, [
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'middle_name' => $middleName,
@@ -576,8 +577,9 @@ final class AccountsController
         $status = (string)($_POST['status'] ?? 'pending');
         $name = self::buildStudentName($lastName, $firstName, $middleName);
 
-        if ($firstName === '' || $lastName === '') {
-            self::renderStudentForm('edit', 'Please enter the student first name and last name.', [
+        $validationError = self::validateStudentInput($applicationNumber, $firstName, $lastName, $shsStrand, $cctChoice, $firstChoice, $secondChoice);
+        if ($validationError !== null) {
+            self::renderStudentForm('edit', $validationError, [
                 'id' => $id,
                 'first_name' => $firstName,
                 'last_name' => $lastName,
@@ -850,6 +852,42 @@ final class AccountsController
         $student['first_choice_label'] = self::resolveCourseChoiceLabel((string)($student['first_choice'] ?? ''));
         $student['second_choice_label'] = self::resolveCourseChoiceLabel((string)($student['second_choice'] ?? ''));
         return $student;
+    }
+
+    private static function validateStudentInput(
+        string $applicationNumber,
+        string $firstName,
+        string $lastName,
+        string $shsStrand,
+        string $cctChoice,
+        ?string $firstChoice,
+        ?string $secondChoice
+    ): ?string {
+        if ($applicationNumber === '') {
+            return 'Please enter the application number.';
+        }
+
+        if ($firstName === '' || $lastName === '') {
+            return 'Please enter the student first name and last name.';
+        }
+
+        if ($shsStrand === '') {
+            return 'Please enter the SHS strand.';
+        }
+
+        if ($firstChoice === null) {
+            return 'Please select the 1st choice program.';
+        }
+
+        if ($secondChoice !== null && $secondChoice === $firstChoice) {
+            return 'The 2nd choice program must be different from the 1st choice.';
+        }
+
+        if ($cctChoice === 'first' && $firstChoice === null) {
+            return 'Select a 1st choice program for the chosen CCT choice.';
+        }
+
+        return null;
     }
 
     private static function hasCctChoiceColumn(): bool

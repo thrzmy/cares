@@ -54,7 +54,7 @@ $courseSummaries = $courseSummaries ?? [];
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label">Application Number</label>
-            <input class="form-control" type="text" name="application_number" value="<?= e((string)($student['application_number'] ?? '')) ?>">
+            <input class="form-control" type="text" name="application_number" required value="<?= e((string)($student['application_number'] ?? '')) ?>">
             <div class="form-text">Use the official application number from the admission records.</div>
           </div>
           <div class="col-12 col-md-4">
@@ -105,7 +105,7 @@ $courseSummaries = $courseSummaries ?? [];
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label">SHS Strand</label>
-            <input class="form-control" type="text" name="shs_strand" value="<?= e((string)($student['shs_strand'] ?? '')) ?>" placeholder="Example: HUMSS, STEM, ABM, ICT, GAS">
+            <input class="form-control" type="text" name="shs_strand" required value="<?= e((string)($student['shs_strand'] ?? '')) ?>" placeholder="Example: HUMSS, STEM, ABM, ICT, GAS">
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label">General Average / GPA</label>
@@ -122,7 +122,7 @@ $courseSummaries = $courseSummaries ?? [];
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label">1st Choice</label>
-            <select class="form-select" id="firstChoice" name="first_choice">
+            <select class="form-select" id="firstChoice" name="first_choice" required>
               <option value="">Select program</option>
               <?php foreach ($courseOptions as $courseOption): ?>
                 <option value="<?= e((string)$courseOption['id']) ?>" <?= in_array((string)($student['first_choice'] ?? ''), [(string)$courseOption['id'], (string)$courseOption['code']], true) ? 'selected' : '' ?>>
