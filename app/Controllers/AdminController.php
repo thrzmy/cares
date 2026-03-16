@@ -6,7 +6,7 @@ final class AdminController
     public static function dashboard(): void
     {
         RoleMiddleware::requireRole('administrator');
-        View::render('admin/dashboard', ['title' => 'Administrator Dashboard']);
+        View::render('admin/dashboard', ['title' => 'Dashboard']);
     }
 
     public static function scores(): void
@@ -138,7 +138,7 @@ final class AdminController
         }
 
         View::render('admin/scores', [
-            'title' => 'Results & Recommendations',
+            'title' => 'Results & Recommendation',
             'students' => $students,
             'recommendations' => $recommendations,
             'q' => $q,
@@ -742,7 +742,7 @@ final class AdminController
         }
 
         View::render('admin/reports', [
-            'title' => 'System Reports',
+            'title' => 'Report Management',
             'startDate' => $startDate,
             'endDate' => $endDate,
             'periodLabel' => $periodLabel,

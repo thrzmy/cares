@@ -18,8 +18,8 @@ RoleMiddleware::requireRole('admission');
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-success bg-success bg-opacity-10">
                     <i class="fa-solid fa-user-graduate fs-4"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1">Students</h5>
-                <span class="text-muted small fw-medium mt-auto">Manage Appplicants</span>
+                <h5 class="fw-bold text-dark mb-1">Student Management</h5>
+                <span class="text-muted small fw-medium mt-auto">Manage student information by semester</span>
             </div>
         </a>
     </div>
@@ -30,8 +30,8 @@ RoleMiddleware::requireRole('admission');
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-primary bg-primary bg-opacity-10">
                     <i class="fa-solid fa-keyboard fs-4"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1">Encode Scores</h5>
-                <span class="text-muted small fw-medium mt-auto">Input Exam Results</span>
+                <h5 class="fw-bold text-dark mb-1">Encode Test Results</h5>
+                <span class="text-muted small fw-medium mt-auto">Encode and manage test scores</span>
             </div>
         </a>
     </div>
@@ -43,7 +43,7 @@ RoleMiddleware::requireRole('admission');
                     <i class="fa-solid fa-database fs-4"></i>
                 </div>
                 <h5 class="fw-bold text-dark mb-1">Result Storage</h5>
-                <span class="text-muted small fw-medium mt-auto">Archive & Review</span>
+                <span class="text-muted small fw-medium mt-auto">Review and update recorded scores</span>
             </div>
         </a>
     </div>
@@ -54,8 +54,8 @@ RoleMiddleware::requireRole('admission');
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-warning bg-warning bg-opacity-10">
                     <i class="fa-solid fa-square-poll-vertical fs-4 text-warning"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1">Recos</h5>
-                <span class="text-muted small fw-medium mt-auto">Program Matches</span>
+                <h5 class="fw-bold text-dark mb-1">Results & Recommendation</h5>
+                <span class="text-muted small fw-medium mt-auto">Review results and recommendations</span>
             </div>
         </a>
     </div>
@@ -66,8 +66,8 @@ RoleMiddleware::requireRole('admission');
                 <div class="icon-wrapper mx-auto mb-3 shadow-sm text-secondary bg-secondary bg-opacity-10">
                     <i class="fa-solid fa-file-contract fs-4"></i>
                 </div>
-                <h5 class="fw-bold text-dark mb-1">System Reports</h5>
-                <span class="text-muted small fw-medium mt-auto">Generate Analytics</span>
+                <h5 class="fw-bold text-dark mb-1">Report Management</h5>
+                <span class="text-muted small fw-medium mt-auto">Generate summaries and printed reports</span>
             </div>
         </a>
     </div>
@@ -79,7 +79,7 @@ RoleMiddleware::requireRole('admission');
                     <i class="fa-solid fa-clock-rotate-left fs-4"></i>
                 </div>
                 <h5 class="fw-bold text-dark mb-1">Activity Logs</h5>
-                <span class="text-muted small fw-medium mt-auto">My Actions</span>
+                <span class="text-muted small fw-medium mt-auto">Review logged admission activities</span>
             </div>
         </a>
     </div>

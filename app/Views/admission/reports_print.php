@@ -12,7 +12,7 @@ $semesterName = $semesterName ?? 'All Semesters';
 $reportTitles = [
     'applicant_list' => 'Applicant List Report',
     'test_results' => 'Admission Test Result Report',
-    'course_recommendation' => 'Course Recommendation Report',
+    'course_recommendation' => 'Results & Recommendation Report',
 ];
 
 $displayStudentName = static function (array $row): string {

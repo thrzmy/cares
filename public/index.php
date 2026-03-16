@@ -38,10 +38,11 @@ $router->post('/forgot-password', [AuthController::class, 'forgotPassword']);
 $router->get('/reset-password', [AuthController::class, 'showResetPassword']);
 $router->post('/reset-password', [AuthController::class, 'resetPassword']);
 
-$router->get('/admin', fn() => redirect('/administrator/reports'));
-$router->get('/guidance', fn() => redirect('/admission/reports'));
+$router->get('/admin', fn() => redirect('/administrator/dashboard'));
+$router->get('/guidance', fn() => redirect('/admission/dashboard'));
 
-$router->get('/administrator', fn() => redirect('/administrator/reports'));
+$router->get('/administrator', fn() => redirect('/administrator/dashboard'));
+$router->get('/administrator/dashboard', [AdminController::class, 'dashboard']);
 
 $router->get('/administrator/accounts', function () {
     RoleMiddleware::requireRole('administrator');
@@ -134,7 +135,8 @@ $router->post('/administrator/students/restore', function () {
     AccountsController::restoreStudent();
 });
 
-$router->get('/admission', fn() => redirect('/admission/reports'));
+$router->get('/admission', fn() => redirect('/admission/dashboard'));
+$router->get('/admission/dashboard', [AdmissionController::class, 'dashboard']);
 $router->get('/admission/encode', [AdmissionController::class, 'encode']);
 $router->get('/admission/encode/edit', [AdmissionController::class, 'editScores']);
 $router->post('/admission/encode/edit', [AdmissionController::class, 'saveScores']);

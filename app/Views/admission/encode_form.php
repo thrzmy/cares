@@ -18,7 +18,7 @@ $requiredAttr = $isView ? '' : 'required';
       <h4 class="fw-bold mb-1">Results Preview</h4>
       <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
     <?php else: ?>
-      <h4 class="fw-bold mb-1">Encode Results</h4>
+      <h4 class="fw-bold mb-1">Encode Test Results</h4>
       <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
     <?php endif; ?>
   </div>
@@ -52,7 +52,7 @@ $requiredAttr = $isView ? '' : 'required';
   <div class="card shadow-sm mb-3">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-        <h6 class="fw-bold mb-0">Top Course Recommendations</h6>
+        <h6 class="fw-bold mb-0">Top Recommended Programs</h6>
         <span class="badge text-bg-light border"><?= e((string)count($recommendations)) ?> item(s)</span>
       </div>
       <?php if (!empty($recommendations)): ?>

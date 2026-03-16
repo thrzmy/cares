@@ -61,7 +61,7 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                 <ul class="sidebar-nav list-unstyled">
                     <?php if ($_SESSION['role'] === 'administrator'): ?>
                         <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">
+                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/dashboard') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/dashboard">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-file-contract fs-5"></i></div>
                                 <span>Dashboard</span>
                             </a>
@@ -69,7 +69,7 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/semesters') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/semesters">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-calendar-check fs-5"></i></div>
-                                <span>Academic Year & Semester</span>
+                                <span>S.Y. & Semester</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
@@ -81,19 +81,25 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/scores') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/scores">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-square-poll-vertical fs-5"></i></div>
-                                <span>Course Recommendations</span>
+                                <span>Results & Recommendation</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/matrix') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/matrix">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-table-list fs-5"></i></div>
-                                <span>Recommendation Matrix</span>
+                                <span>Matrix Configuration</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/accounts') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/accounts">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-users-gear fs-5"></i></div>
                                 <span>Account Management</span>
+                            </a>
+                        </li>
+                        <li class="nav-item mb-1">
+                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/administrator/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/administrator/reports">
+                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-chart-column fs-5"></i></div>
+                                <span>Report Management</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
@@ -104,7 +110,7 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         </li>
                     <?php elseif ($_SESSION['role'] === 'admission'): ?>
                         <li class="nav-item mb-1">
-                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/reports">
+                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/dashboard') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/dashboard">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-file-contract fs-5"></i></div>
                                 <span>Dashboard</span>
                             </a>
@@ -118,7 +124,7 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/encode') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/encode">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-keyboard fs-5"></i></div>
-                                <span>Encode Results</span>
+                                <span>Encode Test Results</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">
@@ -130,7 +136,13 @@ $appCssVersion = is_file($appCssPath) ? (string)filemtime($appCssPath) : '1';
                         <li class="nav-item mb-1">
                             <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/results') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/results">
                                 <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-square-poll-vertical fs-5"></i></div>
-                                <span>Course Recommendations</span>
+                                <span>Results & Recommendation</span>
+                            </a>
+                        </li>
+                        <li class="nav-item mb-1">
+                            <a class="nav-link text-white-50 px-3 py-2 rounded-3 text-decoration-none d-flex align-items-center gap-3 transition-all <?= isActive('/admission/reports') ? 'bg-white bg-opacity-10 text-white fw-semibold' : '' ?>" href="<?= e(BASE_PATH) ?>/admission/reports">
+                                <div class="nav-icon-wrap w-20 d-flex justify-content-center"><i class="fa-solid fa-chart-column fs-5"></i></div>
+                                <span>Report Management</span>
                             </a>
                         </li>
                         <li class="nav-item mb-1">

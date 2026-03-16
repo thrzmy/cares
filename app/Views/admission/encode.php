@@ -7,7 +7,7 @@ $activeSemester = $activeSemester ?? null;
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Admission</div>
-    <h4 class="fw-bold mb-1">Encode Results</h4>
+    <h4 class="fw-bold mb-1">Encode Test Results</h4>
     <p class="page-subtitle">Select a pending student, then enter scores by exam part group.</p>
   </div>
 </div>

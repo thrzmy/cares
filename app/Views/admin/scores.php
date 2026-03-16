@@ -14,7 +14,7 @@ $activeSemester = $activeSemester ?? null;
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Administrator</div>
-    <h4 class="fw-bold mb-1">Course Recommendations</h4>
+    <h4 class="fw-bold mb-1">Results & Recommendation</h4>
     <p class="page-subtitle">Review encoded exam scores and course recommendations.</p>
   </div>
 </div>
@@ -126,7 +126,7 @@ $activeSemester = $activeSemester ?? null;
           <?php $recs = $recommendations[(int)$s['id']] ?? []; ?>
           <?php if (!empty($recs)): ?>
             <div class="mt-3">
-              <div class="text-muted small mb-1">Course Recommendation</div>
+              <div class="text-muted small mb-1">Recommended Program</div>
               <?php foreach ($recs as $rec): ?>
                 <div class="d-flex justify-content-between small">
                   <span><?= e($rec['course_code']) ?></span>
@@ -151,7 +151,7 @@ $activeSemester = $activeSemester ?? null;
             <th>Name</th>
             <th>Email</th>
             <th><?= $recordScopeFilter === 'archived' ? 'Academic Year & Semester' : 'Status' ?></th>
-            <th>Course Recommendation</th>
+            <th>Recommended Program</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>

@@ -7,7 +7,7 @@ final class AdmissionController
     public static function dashboard(): void
     {
         RoleMiddleware::requireRole('admission');
-        View::render('admission/dashboard', ['title' => 'Admission Dashboard']);
+        View::render('admission/dashboard', ['title' => 'Dashboard']);
     }
 
     public static function encode(): void
@@ -171,30 +171,20 @@ final class AdmissionController
 
         $q = trim((string)($_GET['q'] ?? ''));
         $status = trim((string)($_GET['status'] ?? ''));
-        $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
-        $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
-        $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
+        $recordScope = 'active';
+        $schoolYearId = 0;
+        $semesterId = 0;
         $page = max(1, (int)($_GET['page'] ?? 1));
         $perPage = 5;
 
         $params = [];
-        if ($recordScope === 'archived') {
-            $where = "WHERE (s.is_deleted = 1 OR COALESCE(s.is_archived, 0) = 1)
-                  AND EXISTS (
-                      SELECT 1
-                      FROM student_exam_scores ses
-                      WHERE ses.student_id = s.id AND ses.is_deleted = 0
-                  )";
-        } else {
-            $recordScope = 'active';
-            $where = "WHERE s.is_deleted = 0
+        $where = "WHERE s.is_deleted = 0
                   AND COALESCE(s.is_archived, 0) = 0
                   AND EXISTS (
                       SELECT 1
                       FROM student_exam_scores ses
                       WHERE ses.student_id = s.id AND ses.is_deleted = 0
                   )";
-        }
         if ($q !== '') {
             $where .= " AND (s.name LIKE :q_name OR s.email LIKE :q_email OR s.id_number LIKE :q_id)";
             $like = '%' . $q . '%';
@@ -206,44 +196,9 @@ final class AdmissionController
             $where .= " AND s.status = :status";
             $params[':status'] = $status;
         }
-        if ($recordScope === 'archived' && $schoolYearId > 0) {
-            $where .= " AND sy.id = :school_year_id";
-            $params[':school_year_id'] = $schoolYearId;
-        }
-        if ($recordScope === 'archived' && $semesterId > 0) {
-            $where .= " AND sem.id = :semester_id";
-            $params[':semester_id'] = $semesterId;
-        }
-
         $archivedSchoolYears = [];
         $archivedSemesters = [];
         $archivedSemestersByYear = [];
-        if ($recordScope === 'archived') {
-            $archivedSchoolYears = Database::pdo()->query("
-                SELECT id, name
-                FROM school_years
-                WHERE is_deleted = 0 AND COALESCE(is_archived, 0) = 1
-                ORDER BY created_at DESC
-            ")->fetchAll();
-
-            $allSemesterRows = Database::pdo()->query("
-                SELECT id, school_year_id, name
-                FROM semesters
-                WHERE is_deleted = 0
-                ORDER BY FIELD(name, '1st Semester', '2nd Semester', 'Summer')
-            ")->fetchAll();
-
-            foreach ($allSemesterRows as $semesterRow) {
-                $archivedSemestersByYear[(int)$semesterRow['school_year_id']][] = [
-                    'id' => (int)$semesterRow['id'],
-                    'name' => (string)$semesterRow['name'],
-                ];
-            }
-
-            if ($schoolYearId > 0) {
-                $archivedSemesters = $archivedSemestersByYear[$schoolYearId] ?? [];
-            }
-        }
 
         $countSql = "SELECT COUNT(*)
                      FROM students s
@@ -288,7 +243,7 @@ final class AdmissionController
         }
 
         View::render('admission/results', [
-            'title' => 'Results & Recommendations',
+            'title' => 'Results & Recommendation',
             'students' => $students,
             'recommendations' => $recommendations,
             'q' => $q,
@@ -313,9 +268,9 @@ final class AdmissionController
                 'query' => [
                     'q' => $q,
                     'status' => $status,
-                    'record_scope' => $recordScope,
-                    'school_year_id' => $schoolYearId > 0 ? $schoolYearId : '',
-                    'semester_id' => $semesterId > 0 ? $semesterId : '',
+                    'record_scope' => '',
+                    'school_year_id' => '',
+                    'semester_id' => '',
                 ],
             ],
         ]);
@@ -1050,7 +1005,7 @@ final class AdmissionController
         $logs = $st->fetchAll();
 
         View::render('admission/logs', [
-            'title' => 'My Activity Logs',
+            'title' => 'Activity Logs',
             'logs' => $logs,
             'q' => $q,
             'actionFilter' => $action,
@@ -1217,7 +1172,7 @@ final class AdmissionController
         }
 
         View::render('admission/reports', [
-            'title' => 'System Reports',
+            'title' => 'Report Management',
             'startDate' => $startDate,
             'endDate' => $endDate,
             'periodLabel' => $periodLabel,

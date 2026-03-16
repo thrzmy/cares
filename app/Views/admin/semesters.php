@@ -8,7 +8,7 @@ $recordScopeFilter = (string)($recordScopeFilter ?? 'active');
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Administrator</div>
-    <h4 class="fw-bold mb-1">Academic Year & Semester</h4>
+    <h4 class="fw-bold mb-1">S.Y. & Semester</h4>
     <p class="page-subtitle">Manage academic years, semester status, and the currently active term.</p>
   </div>
   <div class="page-actions">

@@ -26,7 +26,7 @@ usort($sortedParts, static function (array $a, array $b) use ($scoresMap): int {
     <p class="page-subtitle">Student: <?= e($student['name']) ?> &middot; <?= e($student['email']) ?></p>
   </div>
   <div class="page-actions">
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/results">Back to Course Recommendations</a>
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_PATH) ?>/admission/results">Back to Results & Recommendation</a>
   </div>
 </div>
 
@@ -35,14 +35,14 @@ usort($sortedParts, static function (array $a, array $b) use ($scoresMap): int {
     <?php $courseSummaries = $courseSummaries ?? []; ?>
     <div class="d-flex flex-nowrap justify-content-between align-items-start gap-2 mb-2">
       <div class="me-2" style="min-width: 0;">
-        <h6 class="fw-bold mb-0">Course Recommendation Summary</h6>
+        <h6 class="fw-bold mb-0">Results & Recommendation Summary</h6>
       </div>
       <span class="badge text-bg-light border flex-shrink-0"><?= e((string)count($courseSummaries)) ?> course(s)</span>
     </div>
     <?php if (!empty($courseSummaries)): ?>
       <?php $topCourse = $courseSummaries[0]; ?>
       <div class="result-summary-highlight mb-3">
-        <div class="result-summary-highlight__label">Top Course Recommendation</div>
+        <div class="result-summary-highlight__label">Top Recommended Program</div>
         <div class="d-flex justify-content-between align-items-start gap-3">
           <div>
             <div class="fw-bold"><?= e((string)$topCourse['course_code']) ?></div>
@@ -57,7 +57,7 @@ usort($sortedParts, static function (array $a, array $b) use ($scoresMap): int {
       <div class="row g-3 mb-3">
         <div class="col-12 col-lg-7">
           <div class="result-summary-section">
-            <div class="result-summary-section__label">Course Recommendations (Highest First)</div>
+            <div class="result-summary-section__label">Recommended Programs (Highest First)</div>
             <div class="d-flex flex-column gap-2">
               <?php foreach ($courseSummaries as $index => $course): ?>
                 <?php $score = (float)$course['total_score']; ?>

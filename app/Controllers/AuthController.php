@@ -9,10 +9,10 @@ final class AuthController
         if (!empty($_SESSION['user_id'])) {
             $role = (string)($_SESSION['role'] ?? '');
             if ($role === 'administrator') {
-                redirect('/administrator/reports');
+                redirect('/administrator/dashboard');
             }
             if ($role === 'admission') {
-                redirect('/admission/reports');
+                redirect('/admission/dashboard');
             }
             redirect('/');
         }
@@ -154,10 +154,10 @@ final class AuthController
 
         // Role redirects
         if ($user['role'] === 'administrator') {
-            redirect('/administrator/reports');
+            redirect('/administrator/dashboard');
         }
         if ($user['role'] === 'admission') {
-            redirect('/admission/reports');
+            redirect('/admission/dashboard');
         }
 
         $_SESSION = [];
@@ -191,10 +191,10 @@ final class AuthController
         if (!empty($_SESSION['user_id'])) {
             $role = (string)($_SESSION['role'] ?? '');
             if ($role === 'administrator') {
-                redirect('/administrator/reports');
+                redirect('/administrator/dashboard');
             }
             if ($role === 'admission') {
-                redirect('/admission/reports');
+                redirect('/admission/dashboard');
             }
             redirect('/');
         }

@@ -52,7 +52,7 @@ $buildPrintUrl = static function (string $type) use ($startDate, $endDate): stri
 <div class="page-header mb-3">
   <div>
     <div class="page-kicker">Admission</div>
-    <h4 class="fw-bold mb-1">Dashboard</h4>
+    <h4 class="fw-bold mb-1">Report Management</h4>
     <p class="page-subtitle">Generate student-only summaries for scores and recommendations.</p>
   </div>
 </div>
@@ -148,7 +148,7 @@ $buildPrintUrl = static function (string $type) use ($startDate, $endDate): stri
     <div class="card shadow-sm">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-          <h6 class="fw-bold mb-0">Course Recommendation Summary</h6>
+          <h6 class="fw-bold mb-0">Results & Recommendation Summary</h6>
           <span class="badge text-bg-light border"><?= e((string)count($topRecommendations)) ?> course(s)</span>
         </div>
         <?php if (!empty($topRecommendations)): ?>
