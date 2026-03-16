@@ -83,6 +83,11 @@ $choiceQualifiedPrograms = array_values(array_filter(
     static fn(array $course): bool => !empty($course['is_first_choice']) || !empty($course['is_second_choice'])
 ));
 
+$examStatus = (string)($student['status'] ?? 'pending');
+$screeningStatus = $examStatus === 'failed'
+    ? 'not_qualified'
+    : (!empty($qualifiedPrograms) ? 'qualified' : ($examStatus === 'passed' ? 'not_qualified' : 'pending'));
+
 $recommendationMessage = 'No qualified program recommendation yet.';
 if (!empty($choiceQualifiedPrograms)) {
     $recommendationMessage = 'Qualified in selected choice program(s).';
@@ -91,7 +96,6 @@ if (!empty($choiceQualifiedPrograms)) {
 }
 
 $profile = !empty($courseSummaries[0]['part2b_profile']) ? (string)$courseSummaries[0]['part2b_profile'] : 'Not available';
-$screeningStatus = (string)($student['screening_status'] ?? 'pending');
 $screeningBadgeClass = $screeningStatus === 'qualified'
     ? 'text-bg-success'
     : ($screeningStatus === 'not_qualified' ? 'text-bg-danger' : 'text-bg-warning');
