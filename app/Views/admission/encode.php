@@ -106,7 +106,7 @@ $activeSemester = $activeSemester ?? null;
           <?php foreach ($students as $s): ?>
             <tr>
               <td class="fw-semibold"><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
-              <td class="fw-semibold"><?= e($s['name']) ?></td>
+              <td><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
               <td><span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span></td>
               <td class="text-end">

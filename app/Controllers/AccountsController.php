@@ -141,7 +141,7 @@ final class AccountsController
     public static function students(): void
     {
         $q = trim((string)($_GET['q'] ?? ''));
-        $status = trim((string)($_GET['status'] ?? ''));
+        $applicationStatus = trim((string)($_GET['application_status'] ?? ''));
         $recordScope = trim((string)($_GET['record_scope'] ?? 'active'));
         $schoolYearId = max(0, (int)($_GET['school_year_id'] ?? 0));
         $semesterId = max(0, (int)($_GET['semester_id'] ?? 0));
@@ -164,9 +164,9 @@ final class AccountsController
             $params[':q_email'] = $like;
             $params[':q_application_number'] = $like;
         }
-        if (in_array($status, ['pending', 'passed', 'failed'], true)) {
-            $where .= " AND s.status = :status";
-            $params[':status'] = $status;
+        if (in_array($applicationStatus, ['new_student', 'transferee', 'returning_student', 'adult_learner', 'old_curriculum', 'als_passer'], true)) {
+            $where .= " AND s.application_status = :application_status";
+            $params[':application_status'] = $applicationStatus;
         }
         if ($recordScope === 'archived' && $schoolYearId > 0) {
             $where .= " AND sy.id = :school_year_id";
@@ -225,6 +225,11 @@ final class AccountsController
                        s.name,
                        s.email,
                        s.application_status,
+                       s.shs_strand,
+                       s.city,
+                       s.province,
+                       s.first_choice,
+                       s.second_choice,
                        s.screening_status,
                        s.status,
                        s.is_deleted,
@@ -246,13 +251,18 @@ final class AccountsController
         $st->bindValue(':offset', $offset, PDO::PARAM_INT);
         $st->execute();
         $students = $st->fetchAll();
+        foreach ($students as &$studentRow) {
+            $studentRow['first_choice_label'] = self::resolveCourseChoiceLabel((string)($studentRow['first_choice'] ?? ''));
+            $studentRow['second_choice_label'] = self::resolveCourseChoiceLabel((string)($studentRow['second_choice'] ?? ''));
+        }
+        unset($studentRow);
         $activeSemester = self::getActiveSemester();
 
         View::render('admin/students', [
             'title' => 'Student Management',
             'students' => $students,
             'q' => $q,
-            'statusFilter' => $status,
+            'applicationStatusFilter' => $applicationStatus,
             'recordScopeFilter' => $recordScope,
             'activeSemester' => $activeSemester,
             'schoolYearFilter' => $schoolYearId,
@@ -270,7 +280,7 @@ final class AccountsController
                 'basePath' => '/administrator/students',
                 'query' => [
                     'q' => $q,
-                    'status' => $status,
+                    'application_status' => $applicationStatus,
                     'record_scope' => $recordScope,
                     'school_year_id' => $schoolYearId > 0 ? $schoolYearId : '',
                     'semester_id' => $semesterId > 0 ? $semesterId : '',

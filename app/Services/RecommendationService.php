@@ -140,7 +140,6 @@ final class RecommendationService
                     ON c.id = w.course_id
                    AND c.is_deleted = 0
                 WHERE s.id IN ($placeholders)
-                  AND s.is_deleted = 0
                 GROUP BY s.id, c.id
                 HAVING matrix_required_score > 0
                 ORDER BY s.id ASC, choice_priority ASC, c.course_code ASC";

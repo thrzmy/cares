@@ -126,14 +126,6 @@ $router->post('/administrator/students/edit', function () {
     RoleMiddleware::requireRole('administrator');
     AccountsController::updateStudent();
 });
-$router->post('/administrator/students/archive', function () {
-    RoleMiddleware::requireRole('administrator');
-    AccountsController::archiveStudent();
-});
-$router->post('/administrator/students/restore', function () {
-    RoleMiddleware::requireRole('administrator');
-    AccountsController::restoreStudent();
-});
 
 $router->get('/admission', fn() => redirect('/admission/dashboard'));
 $router->get('/admission/dashboard', [AdmissionController::class, 'dashboard']);
@@ -157,8 +149,6 @@ $router->get('/admission/students/create', [AdmissionController::class, 'createS
 $router->post('/admission/students/create', [AdmissionController::class, 'storeStudent']);
 $router->get('/admission/students/edit', [AdmissionController::class, 'editStudent']);
 $router->post('/admission/students/edit', [AdmissionController::class, 'updateStudent']);
-$router->post('/admission/students/archive', [AdmissionController::class, 'archiveStudent']);
-$router->post('/admission/students/restore', [AdmissionController::class, 'restoreStudent']);
 
 // ── Semester Management (Admin) ──
 $router->get('/administrator/semesters', [SemesterController::class, 'index']);

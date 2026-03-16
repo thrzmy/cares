@@ -3,7 +3,12 @@ declare(strict_types=1);
 $success = $success ?? null;
 $error = $error ?? null;
 $recommendations = $recommendations ?? [];
-$recordScopeFilter = 'active';
+$recordScopeFilter = (string)($recordScopeFilter ?? 'active');
+$schoolYearFilter = (int)($schoolYearFilter ?? 0);
+$semesterFilter = (int)($semesterFilter ?? 0);
+$archivedSchoolYears = $archivedSchoolYears ?? [];
+$archivedSemesters = $archivedSemesters ?? [];
+$archivedSemestersByYear = $archivedSemestersByYear ?? [];
 $activeSemester = $activeSemester ?? null;
 
 $recommendationDisplay = static function (array $recs): array {
@@ -58,6 +63,9 @@ $recommendationDisplay = static function (array $recs): array {
 <?php endif; ?>
 
 <form class="mb-3" method="get" action="<?= e(BASE_PATH) ?>/admission/results">
+  <?php if ($recordScopeFilter !== 'active'): ?>
+    <input type="hidden" name="record_scope" value="<?= e((string)$recordScopeFilter) ?>">
+  <?php endif; ?>
   <div class="row g-2 align-items-end">
     <div class="col-12 col-md-8">
       <label class="form-label small">Search Students</label>
@@ -72,11 +80,44 @@ $recommendationDisplay = static function (array $recs): array {
       </select>
     </div>
   </div>
+  <?php if ($recordScopeFilter === 'archived'): ?>
+    <div class="row g-2 align-items-end mt-1">
+      <div class="col-12 col-md-6">
+        <label class="form-label small">School Year</label>
+        <select class="form-select" id="archivedAdmissionRecoSchoolYearFilter" name="school_year_id">
+          <option value="">All academic years</option>
+          <?php foreach ($archivedSchoolYears as $schoolYear): ?>
+            <option value="<?= (int)$schoolYear['id'] ?>" <?= $schoolYearFilter === (int)$schoolYear['id'] ? 'selected' : '' ?>>
+              <?= e((string)$schoolYear['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label small">Semester</label>
+        <select class="form-select" id="archivedAdmissionRecoSemesterFilter" name="semester_id">
+          <option value="">All semesters</option>
+          <?php foreach ($archivedSemesters as $semester): ?>
+            <option value="<?= (int)$semester['id'] ?>" <?= $semesterFilter === (int)$semester['id'] ? 'selected' : '' ?>>
+              <?= e((string)$semester['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    </div>
+  <?php endif; ?>
   <div class="row g-2 mt-1">
     <div class="col-12">
       <div class="d-flex flex-column flex-md-row justify-content-end align-items-stretch align-items-md-center gap-2">
+        <div class="d-grid d-md-block me-md-auto">
+          <?php if ($recordScopeFilter === 'archived'): ?>
+            <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/results">Back to Default View</a>
+          <?php else: ?>
+            <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/results?record_scope=archived">View Archived Recommendations</a>
+          <?php endif; ?>
+        </div>
         <div class="d-grid d-md-flex gap-2 justify-content-md-end">
-          <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/results">Clear Filters</a>
+          <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/admission/results<?= $recordScopeFilter !== 'active' ? '?record_scope=' . urlencode((string)$recordScopeFilter) : '' ?>">Clear Filters</a>
           <button class="btn btn-primary" type="submit">Apply Filters</button>
         </div>
       </div>
@@ -88,6 +129,7 @@ $recommendationDisplay = static function (array $recs): array {
   <div class="d-block d-md-none">
     <?php foreach ($students as $s): ?>
       <?php $recDisplay = $recommendationDisplay($recommendations[(int)$s['id']] ?? []); ?>
+      <?php $isArchived = (int)($s['is_deleted'] ?? 0) === 1 || (int)($s['is_archived'] ?? 0) === 1; ?>
       <div class="card shadow-sm mb-3">
         <div class="card-body">
           <div class="d-flex align-items-start justify-content-between gap-2">
@@ -96,8 +138,14 @@ $recommendationDisplay = static function (array $recs): array {
               <div class="text-muted small"><?= e($s['email']) ?></div>
               <div class="text-muted small">Application No.: <?= e((string)($s['application_number'] ?? 'Not provided')) ?></div>
               <div class="text-muted small mt-1">App: <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?></div>
+              <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
+                <div class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
+              <?php endif; ?>
             </div>
             <div class="d-flex flex-column align-items-end gap-1">
+              <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
+                <span class="badge text-bg-dark">Archived</span>
+              <?php endif; ?>
               <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span>
               <span class="badge <?= e((string)($s['screening_status'] ?? 'pending') === 'qualified' ? 'text-bg-success' : 'text-bg-danger') ?>"><?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></span>
             </div>
@@ -141,6 +189,9 @@ $recommendationDisplay = static function (array $recs): array {
             <th>Application Number</th>
             <th>Name</th>
             <th>Email</th>
+            <?php if ($recordScopeFilter === 'archived'): ?>
+              <th>Academic Year & Semester</th>
+            <?php endif; ?>
             <th>Exam</th>
             <th>Qualified</th>
             <th>Qualified Program(s)</th>
@@ -150,11 +201,17 @@ $recommendationDisplay = static function (array $recs): array {
         <tbody>
           <?php foreach ($students as $s): ?>
             <?php $recDisplay = $recommendationDisplay($recommendations[(int)$s['id']] ?? []); ?>
+            <?php $isArchived = (int)($s['is_deleted'] ?? 0) === 1 || (int)($s['is_archived'] ?? 0) === 1; ?>
             <tr>
               <td class="fw-semibold"><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
-              <td class="fw-semibold"><?= e($s['name']) ?></td>
+              <td><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
-              <td><span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span></td>
+              <?php if ($recordScopeFilter === 'archived'): ?>
+                <td class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></td>
+              <?php endif; ?>
+              <td>
+                <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span>
+              </td>
               <td><span class="badge <?= e((string)($s['screening_status'] ?? 'pending') === 'qualified' ? 'text-bg-success' : 'text-bg-danger') ?>"><?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></span></td>
               <td>
                 <?php if (!empty($recDisplay['items'])): ?>
@@ -179,7 +236,13 @@ $recommendationDisplay = static function (array $recs): array {
                 <?php endif; ?>
               </td>
               <td class="text-end">
-                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/results/view?id=<?= (int)$s['id'] ?>">View Summary</a>
+                <?php if ($recordScopeFilter === 'archived'): ?>
+                  <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/results/view?id=<?= (int)$s['id'] ?>" title="View Summary" aria-label="View Summary">
+                    <i class="fa-solid fa-eye"></i>
+                  </a>
+                <?php else: ?>
+                  <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/results/view?id=<?= (int)$s['id'] ?>">View Summary</a>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -197,3 +260,45 @@ $recommendationDisplay = static function (array $recs): array {
 $pagination = $pagination ?? null;
 require __DIR__ . '/../partials/pagination.php';
 ?>
+
+<?php if ($recordScopeFilter === 'archived'): ?>
+  <script>
+    (() => {
+      const schoolYearSelect = document.getElementById('archivedAdmissionRecoSchoolYearFilter');
+      const semesterSelect = document.getElementById('archivedAdmissionRecoSemesterFilter');
+      const semestersByYear = <?= json_encode($archivedSemestersByYear, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+      const selectedSemester = <?= json_encode((string)$semesterFilter, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
+
+      if (!schoolYearSelect || !semesterSelect) {
+        return;
+      }
+
+      const renderSemesters = (yearId, keepSelected) => {
+        const options = semestersByYear[yearId] || [];
+        const currentValue = keepSelected ? selectedSemester : '';
+
+        semesterSelect.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = options.length > 0 ? 'All semesters' : 'Select school year first';
+        semesterSelect.appendChild(defaultOption);
+
+        options.forEach((semester) => {
+          const option = document.createElement('option');
+          option.value = String(semester.id);
+          option.textContent = semester.name;
+          if (currentValue !== '' && currentValue === String(semester.id)) {
+            option.selected = true;
+          }
+          semesterSelect.appendChild(option);
+        });
+
+        semesterSelect.disabled = yearId === '';
+      };
+
+      renderSemesters(schoolYearSelect.value, true);
+      schoolYearSelect.addEventListener('change', () => renderSemesters(schoolYearSelect.value, false));
+    })();
+  </script>
+<?php endif; ?>

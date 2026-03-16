@@ -113,7 +113,7 @@ $recommendationDisplay = static function (array $recs): array {
           <?php if ($recordScopeFilter === 'archived'): ?>
             <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/scores">Back to Default View</a>
           <?php else: ?>
-            <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/scores?record_scope=archived">View Archived Students</a>
+            <a class="btn btn-outline-secondary" href="<?= e(BASE_PATH) ?>/administrator/scores?record_scope=archived">View Archived Recommendations</a>
           <?php endif; ?>
         </div>
         <div class="d-grid d-md-flex gap-2 justify-content-md-end">
@@ -191,6 +191,9 @@ $recommendationDisplay = static function (array $recs): array {
             <th>Application Number</th>
             <th>Name</th>
             <th>Email</th>
+            <?php if ($recordScopeFilter === 'archived'): ?>
+              <th>Academic Year & Semester</th>
+            <?php endif; ?>
             <th>Exam</th>
             <th>Qualified</th>
             <th>Qualified Program(s)</th>
@@ -203,13 +206,13 @@ $recommendationDisplay = static function (array $recs): array {
             <?php $recDisplay = $recommendationDisplay($recommendations[(int)$s['id']] ?? []); ?>
             <tr>
               <td class="fw-semibold"><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
-              <td class="fw-semibold"><?= e($s['name']) ?></td>
+              <td><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
+              <?php if ($recordScopeFilter === 'archived'): ?>
+                <td class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></td>
+              <?php endif; ?>
               <td>
                 <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>"><?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></span>
-                <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
-                  <div class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
-                <?php endif; ?>
               </td>
               <td>
                 <span class="badge <?= e((string)($s['screening_status'] ?? 'pending') === 'qualified' ? 'text-bg-success' : 'text-bg-danger') ?>"><?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></span>
@@ -237,7 +240,13 @@ $recommendationDisplay = static function (array $recs): array {
                 <?php endif; ?>
               </td>
               <td class="text-end">
-                <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores/view?id=<?= (int)$s['id'] ?>">View Summary</a>
+                <?php if ($recordScopeFilter === 'archived'): ?>
+                  <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores/view?id=<?= (int)$s['id'] ?>" title="View Summary" aria-label="View Summary">
+                    <i class="fa-solid fa-eye"></i>
+                  </a>
+                <?php else: ?>
+                  <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/administrator/scores/view?id=<?= (int)$s['id'] ?>">View Summary</a>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>

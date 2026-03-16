@@ -39,7 +39,7 @@ usort($sortedParts, static function (array $a, array $b) use ($scoresMap): int {
 <?php endif; ?>
 <?php require __DIR__ . '/../partials/result_summary_content.php'; ?>
 
-<?php if (!empty($parts)): ?>
+<?php if (!empty($parts) && !empty($student['can_edit_scores'])): ?>
   <form method="post" action="<?= e(BASE_PATH) ?>/admission/encode/edit" class="mt-3" data-summary-score-form>
     <?= csrfField() ?>
     <input type="hidden" name="id" value="<?= (int)$student['id'] ?>">
@@ -193,4 +193,54 @@ usort($sortedParts, static function (array $a, array $b) use ($scoresMap): int {
       syncDirtyState();
     });
   </script>
+<?php elseif (!empty($parts)): ?>
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h6 class="fw-bold mb-1">Exam Scores</h6>
+          <p class="text-muted small mb-0">Scores are read-only for archived student records.</p>
+        </div>
+      </div>
+      <div class="row g-3">
+        <?php foreach (($groupedParts ?: [['category_name' => 'Exam Parts', 'parts' => $parts]]) as $group): ?>
+          <div class="col-12 col-xl-6">
+            <section class="encode-part-card h-100">
+              <header class="encode-part-card__header">
+                <h6 class="encode-part-card__title mb-0"><?= e((string)($group['category_name'] ?? 'Exam Parts')) ?></h6>
+              </header>
+              <div class="encode-part-card__body">
+                <div class="row g-3">
+                  <?php foreach (($group['parts'] ?? []) as $part): ?>
+                    <?php
+                      $partId = (int)$part['id'];
+                      $maxScore = (float)$part['max_score'];
+                      $value = $scoresMap[$partId] ?? '';
+                      $displayValue = $value === '' ? '0' : number_format((float)$value, 0, '.', '');
+                    ?>
+                    <div class="col-12 col-md-6">
+                      <label class="encode-score-label">
+                        <span><?= e((string)$part['name']) ?></span>
+                        <span class="encode-score-max">Max: <?= e(number_format($maxScore, 0)) ?></span>
+                      </label>
+                      <div class="encode-score-input-wrap">
+                        <input
+                          class="form-control encode-score-input"
+                          type="text"
+                          value="<?= e($displayValue) ?>"
+                          readonly
+                          disabled
+                        >
+                        <span class="encode-score-suffix">pts</span>
+                      </div>
+                    </div>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+            </section>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
 <?php endif; ?>

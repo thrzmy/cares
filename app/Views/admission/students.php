@@ -15,7 +15,7 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
   <div>
     <div class="page-kicker">Admission</div>
     <h4 class="fw-bold mb-1">Student Management</h4>
-    <p class="page-subtitle">Manage student details, application types, and exam results.</p>
+    <p class="page-subtitle">Manage admission student profiles, course choices, and academic details.</p>
   </div>
 </div>
 
@@ -49,12 +49,15 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
       <input class="form-control" type="text" name="q" value="<?= e((string)($q ?? '')) ?>" placeholder="Search by name, email, or application number">
     </div>
     <div class="col-12 col-md-4">
-      <label class="form-label small">Exam Result</label>
-      <select class="form-select" name="status">
-        <option value="">All statuses</option>
-        <option value="pending" <?= ($statusFilter ?? '') === 'pending' ? 'selected' : '' ?>>Pending</option>
-        <option value="passed" <?= ($statusFilter ?? '') === 'passed' ? 'selected' : '' ?>>Passed</option>
-        <option value="failed" <?= ($statusFilter ?? '') === 'failed' ? 'selected' : '' ?>>Failed</option>
+      <label class="form-label small">Application Type</label>
+      <select class="form-select" name="application_status">
+        <option value="">All application types</option>
+        <option value="new_student" <?= ($applicationStatusFilter ?? '') === 'new_student' ? 'selected' : '' ?>>New Student</option>
+        <option value="transferee" <?= ($applicationStatusFilter ?? '') === 'transferee' ? 'selected' : '' ?>>Transferee</option>
+        <option value="returning_student" <?= ($applicationStatusFilter ?? '') === 'returning_student' ? 'selected' : '' ?>>Returning Student</option>
+        <option value="adult_learner" <?= ($applicationStatusFilter ?? '') === 'adult_learner' ? 'selected' : '' ?>>Adult Learner</option>
+        <option value="old_curriculum" <?= ($applicationStatusFilter ?? '') === 'old_curriculum' ? 'selected' : '' ?>>Old Curriculum</option>
+        <option value="als_passer" <?= ($applicationStatusFilter ?? '') === 'als_passer' ? 'selected' : '' ?>>ALS Passer</option>
       </select>
     </div>
   </div>
@@ -107,6 +110,8 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
   <div class="d-block d-md-none">
     <?php foreach ($students as $s): ?>
       <?php $isArchived = (int)($s['is_deleted'] ?? 0) === 1; ?>
+      <?php
+      ?>
       <div class="card shadow-sm mb-3">
         <div class="card-body">
           <div class="d-flex align-items-start justify-content-between gap-2">
@@ -114,10 +119,7 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
               <div class="fw-semibold"><?= e($s['name']) ?></div>
               <div class="text-muted small"><?= e($s['email']) ?></div>
               <div class="text-muted small">Application No.: <?= e((string)($s['application_number'] ?? 'Not provided')) ?></div>
-              <div class="text-muted small">Application Status: <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?></div>
-              <?php if ($recordScopeFilter !== 'archived' || !$isArchived): ?>
-                <div class="text-muted small">Screening Status: <?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></div>
-              <?php endif; ?>
+              <div class="text-muted small">Application Type: <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?></div>
               <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
                 <div class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
               <?php endif; ?>
@@ -125,32 +127,13 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
             <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
               <span class="badge text-bg-dark">Archived</span>
             <?php else: ?>
-              <span class="badge <?= e(studentStatusBadgeClass((string)($s['status'] ?? 'pending'))) ?>">
-                <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?>
+              <span class="badge text-bg-light border text-dark">
+                <?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?>
               </span>
             <?php endif; ?>
           </div>
-          <?php if ($isArchived): ?>
-            <button
-              class="btn btn-success btn-sm w-100 mt-3"
-              type="button"
-              data-bs-toggle="modal"
-              data-bs-target="#restoreStudentModalAdmission"
-              data-id="<?= (int)$s['id'] ?>"
-              data-name="<?= e($s['name']) ?>">
-              Restore Record
-            </button>
-          <?php else: ?>
+          <?php if (!$isArchived): ?>
             <a class="btn btn-outline-primary btn-sm w-100 mt-3" href="<?= e(BASE_PATH) ?>/admission/students/edit?id=<?= (int)$s['id'] ?>">Edit Record</a>
-            <button
-              class="btn btn-outline-dark btn-sm w-100 mt-2"
-              type="button"
-              data-bs-toggle="modal"
-              data-bs-target="#archiveStudentModalAdmission"
-              data-id="<?= (int)$s['id'] ?>"
-              data-name="<?= e($s['name']) ?>">
-              Archive Record
-            </button>
           <?php endif; ?>
         </div>
       </div>
@@ -160,55 +143,38 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
   <div class="d-none d-md-block">
     <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
       <table class="table table-hover align-middle mb-0">
-        <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+        <thead class="table-light" style="position: sticky; top: 0; z-index: 2;">
           <tr>
-            <th>Name</th>
             <th>Application Number</th>
+            <th>Student</th>
             <th>Email</th>
-            <th><?= $recordScopeFilter === 'archived' ? 'Academic Year & Semester' : 'Application / Exam Result' ?></th>
-            <th class="text-end">Actions</th>
+            <th><?= $recordScopeFilter === 'archived' ? 'Academic Year & Semester' : 'Application Status' ?></th>
+            <?php if ($recordScopeFilter !== 'archived'): ?>
+              <th class="text-end">Actions</th>
+            <?php endif; ?>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($students as $s): ?>
             <?php $isArchived = (int)($s['is_deleted'] ?? 0) === 1; ?>
             <tr>
-              <td class="fw-semibold"><?= e($s['name']) ?></td>
-              <td><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
+              <td class="fw-semibold"><?= e((string)($s['application_number'] ?? 'Not provided')) ?></td>
+              <td><?= e($s['name']) ?></td>
               <td><?= e($s['email']) ?></td>
               <td>
                 <?php if ($recordScopeFilter === 'archived' && $isArchived): ?>
-                  <div class="fw-semibold"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
+                  <div class="text-muted small"><?= e(trim((string)($s['school_year_name'] ?? 'Not assigned') . ' - ' . (string)($s['semester_name'] ?? 'No semester'))) ?></div>
                 <?php else: ?>
-                  <div class="fw-semibold"><?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?></div>
-                  <div class="text-muted small">Screening: <?= e(studentScreeningStatusLabel((string)($s['screening_status'] ?? 'pending'))) ?></div>
-                  <div class="text-muted small">Exam Result: <?= e(studentStatusLabel((string)($s['status'] ?? 'pending'))) ?></div>
+                  <div class="text-muted small"><?= e(studentApplicationStatusLabel((string)($s['application_status'] ?? 'new_student'))) ?></div>
                 <?php endif; ?>
               </td>
-              <td class="text-end">
-                <?php if ($isArchived): ?>
-                  <button
-                    class="btn btn-success btn-sm"
-                    type="button"
-                    data-bs-toggle="modal"
-                    data-bs-target="#restoreStudentModalAdmission"
-                    data-id="<?= (int)$s['id'] ?>"
-                    data-name="<?= e($s['name']) ?>">
-                    Restore
-                  </button>
-                <?php else: ?>
-                  <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/students/edit?id=<?= (int)$s['id'] ?>">Edit Record</a>
-                  <button
-                    class="btn btn-outline-dark btn-sm"
-                    type="button"
-                    data-bs-toggle="modal"
-                    data-bs-target="#archiveStudentModalAdmission"
-                    data-id="<?= (int)$s['id'] ?>"
-                    data-name="<?= e($s['name']) ?>">
-                    Archive
-                  </button>
-                <?php endif; ?>
-              </td>
+              <?php if ($recordScopeFilter !== 'archived'): ?>
+                <td class="text-end">
+                  <?php if (!$isArchived): ?>
+                    <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_PATH) ?>/admission/students/edit?id=<?= (int)$s['id'] ?>">Edit Record</a>
+                  <?php endif; ?>
+                </td>
+              <?php endif; ?>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -225,72 +191,6 @@ $archivedSemestersByYear = $archivedSemestersByYear ?? [];
 $pagination = $pagination ?? null;
 require __DIR__ . '/../partials/pagination.php';
 ?>
-
-<div class="modal fade" id="archiveStudentModalAdmission" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form method="post" action="<?= e(BASE_PATH) ?>/admission/students/archive">
-        <?= csrfField() ?>
-        <input type="hidden" name="id" id="archiveStudentIdAdmission">
-        <div class="modal-header">
-          <h5 class="modal-title">Archive Student</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <p class="mb-0">Archive <strong id="archiveStudentNameAdmission">this student</strong>?</p>
-          <p class="text-muted small mb-0">The student will be hidden from the default list.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-outline-dark">Confirm Archive</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="restoreStudentModalAdmission" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <form method="post" action="<?= e(BASE_PATH) ?>/admission/students/restore">
-        <?= csrfField() ?>
-        <input type="hidden" name="id" id="restoreStudentIdAdmission">
-        <div class="modal-header">
-          <h5 class="modal-title">Restore Student</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <p class="mb-0">Restore <strong id="restoreStudentNameAdmission">this student</strong>?</p>
-          <p class="text-muted small mb-0">This will return the student to the default list.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success">Confirm Restore</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-  const archiveStudentModalAdmission = document.getElementById('archiveStudentModalAdmission');
-  if (archiveStudentModalAdmission) {
-    archiveStudentModalAdmission.addEventListener('show.bs.modal', (event) => {
-      const button = event.relatedTarget;
-      archiveStudentModalAdmission.querySelector('#archiveStudentIdAdmission').value = button.getAttribute('data-id') || '';
-      archiveStudentModalAdmission.querySelector('#archiveStudentNameAdmission').textContent = button.getAttribute('data-name') || 'this student';
-    });
-  }
-
-  const restoreStudentModalAdmission = document.getElementById('restoreStudentModalAdmission');
-  if (restoreStudentModalAdmission) {
-    restoreStudentModalAdmission.addEventListener('show.bs.modal', (event) => {
-      const button = event.relatedTarget;
-      restoreStudentModalAdmission.querySelector('#restoreStudentIdAdmission').value = button.getAttribute('data-id') || '';
-      restoreStudentModalAdmission.querySelector('#restoreStudentNameAdmission').textContent = button.getAttribute('data-name') || 'this student';
-    });
-  }
-</script>
 
 <?php if ($recordScopeFilter === 'archived'): ?>
   <script>
