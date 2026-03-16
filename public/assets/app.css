@@ -182,6 +182,7 @@ h1, h2, h3, h4, h5, h6, .font-cinzel {
 .content-wrapper {
   min-height: 0;
   overscroll-behavior: contain;
+  overflow-y: auto;
 }
 
 .transition-all { transition: all var(--transition-fast); }

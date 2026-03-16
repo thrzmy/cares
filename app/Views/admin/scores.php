@@ -25,7 +25,7 @@ $recommendationDisplay = static function (array $recs): array {
   if (!empty($recs)) {
     return [
       'state' => 'other_match',
-      'items' => $recs,
+      'items' => [],
       'message' => 'Qualified in other programs, but not in the selected choices.',
     ];
   }

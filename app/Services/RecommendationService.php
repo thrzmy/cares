@@ -83,12 +83,21 @@ final class RecommendationService
                     c.course_name,
                     SUM(
                         CASE
-                            WHEN w.weight > 0 AND COALESCE(ep.max_score, 0) > 0
+                            WHEN ep.name IN ('English','Filipino','Literature','Math','Science','Studies','Humanities')
+                                 AND w.weight > 0
+                                 AND COALESCE(ep.max_score, 0) > 0
                                 THEN (ses.score / ep.max_score) * w.weight
                             ELSE 0
                         END
                     ) AS matrix_score,
-                    SUM(CASE WHEN w.weight > 0 THEN w.weight ELSE 0 END) AS matrix_required_score,
+                    SUM(
+                        CASE
+                            WHEN ep.name IN ('English','Filipino','Literature','Math','Science','Studies','Humanities')
+                                 AND w.weight > 0
+                                THEN w.weight
+                            ELSE 0
+                        END
+                    ) AS matrix_required_score,
                     CASE
                         WHEN (
                             (COALESCE(s.first_choice, '') REGEXP '^[0-9]+$' AND CAST(COALESCE(s.first_choice, '0') AS UNSIGNED) = c.id)
@@ -162,14 +171,10 @@ final class RecommendationService
                 $part2bProfile['letters'],
                 $requirements['riasec_match']
             );
-            $aptitudeProfileBonus = $riasecResult ? 10.0 : 0.0;
-            $aptitudeCombinedScore = $composites['aptitude_set_a'] + $aptitudeProfileBonus;
             $displayScores = self::calculateQualificationDisplayScores(
                 $matrixScore = (float)$row['matrix_score'],
                 $matrixRequiredScore = (float)$row['matrix_required_score'],
-                $composites,
                 $requirements,
-                $riasecResult,
                 (string)$row['course_code'],
                 $scoreMap
             );
@@ -198,7 +203,8 @@ final class RecommendationService
                 && $cctChoiceResult
                 && $choiceResult
                 && $strandResult
-                && $gpaResult;
+                && $gpaResult
+                && $riasecResult;
             $bonusScore = self::calculateBonusScore(
                 $row['honors_awards_points'] === null ? null : (float)$row['honors_awards_points'],
                 $row['residence_points'] === null ? null : (float)$row['residence_points'],
@@ -218,7 +224,7 @@ final class RecommendationService
                 'achievement_score' => $displayScores['achievement'],
                 'aptitude_score' => $displayScores['aptitude'],
                 'aptitude_set_a_score' => $displayScores['aptitude'],
-                'aptitude_profile_bonus' => $aptitudeProfileBonus,
+                'aptitude_profile_bonus' => $displayScores['aptitude_profile_bonus'],
                 'personality_score' => $displayScores['personality'],
                 'achievement_required' => $requirements['achievement_min'],
                 'aptitude_required' => $requirements['aptitude_min'],
@@ -394,9 +400,7 @@ final class RecommendationService
     private static function calculateQualificationDisplayScores(
         float $matrixScore,
         float $matrixRequiredScore,
-        array $composites,
         array $requirements,
-        bool $riasecMatched,
         string $courseCode,
         array $scoreMap
     ): array {
@@ -413,19 +417,20 @@ final class RecommendationService
             $achievementMax,
             $achievementRequired
         );
-
-        $aptitudeProfileWeight = 10.0;
-        $aptitudeSetAWeight = max(0.0, $aptitudeMax - $aptitudeProfileWeight);
-        $aptitudeSetAScore = min(
-            $aptitudeSetAWeight,
-            (((float)($composites['aptitude_set_a'] ?? 0.0)) / 20.0) * $aptitudeSetAWeight
+        $aptitudeScore = self::calculateThresholdScaledScore(
+            $courseCode,
+            self::PART2A_NAMES,
+            $scoreMap,
+            $aptitudeMax,
+            $aptitudeRequired
         );
-        $aptitudeProfileScore = $riasecMatched ? $aptitudeProfileWeight : 0.0;
-        $aptitudeScore = min($aptitudeMax, $aptitudeSetAScore + $aptitudeProfileScore);
-
-        $personalityScore = min(
+        $personalityScore = self::calculateThresholdScaledScore(
+            $courseCode,
+            self::PART4_NAMES,
+            $scoreMap,
             $personalityMax,
-            (((float)($composites['personality'] ?? 0.0)) / 20.0) * $personalityMax
+            $personalityRequired,
+            true
         );
 
         return [
@@ -433,6 +438,7 @@ final class RecommendationService
             'aptitude' => $aptitudeScore,
             'personality' => $personalityScore,
             'core' => (($achievementScore + $aptitudeScore + $personalityScore) / 100.0) * (float)($requirements['core_weight'] ?? 80.0),
+            'aptitude_profile_bonus' => 0.0,
         ];
     }
 
@@ -486,6 +492,63 @@ final class RecommendationService
         $bonusScore = ($extraEarnedTotal / $extraPossibleTotal) * $bonusHeadroom;
 
         return min($achievementMax, $achievementThreshold + $bonusScore);
+    }
+
+    private static function calculateThresholdScaledScore(
+        string $courseCode,
+        array $partNames,
+        array $scoreMap,
+        float $displayMax,
+        float $threshold,
+        bool $invertNeuroticism = false
+    ): float {
+        if ($displayMax <= 0) {
+            return 0.0;
+        }
+
+        $requiredByPart = self::getCourseExamPartWeightsByName($courseCode, $partNames);
+        $requiredTotal = 0.0;
+        $matchedMinimumTotal = 0.0;
+        $extraEarnedTotal = 0.0;
+        $extraPossibleTotal = 0.0;
+
+        foreach ($partNames as $partName) {
+            $required = (float)($requiredByPart[$partName] ?? 0.0);
+            if ($required <= 0) {
+                continue;
+            }
+
+            $requiredTotal += $required;
+            $partMax = isset($scoreMap[$partName]) ? (float)$scoreMap[$partName]['max_score'] : (($invertNeuroticism || in_array($partName, self::PART2A_NAMES, true)) ? 10.0 : 30.0);
+            $actualScore = isset($scoreMap[$partName]) ? (float)$scoreMap[$partName]['score'] : 0.0;
+
+            if ($invertNeuroticism && $partName === 'Neuroticism') {
+                $actualScore = max(0.0, $partMax - $actualScore);
+            }
+
+            $boundedActual = max(0.0, min($actualScore, $partMax));
+            $matchedMinimumTotal += min($boundedActual, $required);
+
+            $extraPossible = max(0.0, $partMax - $required);
+            $extraPossibleTotal += $extraPossible;
+            if ($boundedActual > $required) {
+                $extraEarnedTotal += min($boundedActual - $required, $extraPossible);
+            }
+        }
+
+        if ($requiredTotal <= 0) {
+            return 0.0;
+        }
+
+        $thresholdScore = ($matchedMinimumTotal / $requiredTotal) * $threshold;
+        if ($matchedMinimumTotal < $requiredTotal || $extraPossibleTotal <= 0) {
+            return min($displayMax, $thresholdScore);
+        }
+
+        $bonusHeadroom = max(0.0, $displayMax - $threshold);
+        $bonusScore = ($extraEarnedTotal / $extraPossibleTotal) * $bonusHeadroom;
+
+        return min($displayMax, $threshold + $bonusScore);
     }
 
     private static function calculatePart2BProfile(array $scoreMap): array
